@@ -1696,69 +1696,100 @@ function initPaint() {
     if (b.dataset.s) { pSize = +b.dataset.s; $('pTools').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); }
   });
 }
+// The brush paints by distance on the mochi's surface, not on the flat texture, so it never jumps to other parts of the texture
+let pData = null, pPos = null, pGrid = null, pCell = .1, pWidth = 1;
+function buildSurfaceMap(geo) {
+  // for every texel: the point on the model it belongs to (rasterised from the triangles' UVs)
+  const S = 512, pos = geo.attributes.position, uv = geo.attributes.uv, idx = geo.index;
+  pPos = new Float32Array(S * S * 3).fill(NaN);
+  const tri = idx ? idx.count / 3 : pos.count / 3, gi = i => idx ? idx.getX(i) : i;
+  for (let t = 0; t < tri; t++) {
+    const a = gi(t * 3), b = gi(t * 3 + 1), c = gi(t * 3 + 2);
+    const ax = uv.getX(a) * S, ay = uv.getY(a) * S, bx = uv.getX(b) * S, by = uv.getY(b) * S, cx = uv.getX(c) * S, cy = uv.getY(c) * S;
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy); if (Math.abs(den) < 1e-9) continue;
+    const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx) - 1)), x1 = Math.min(S - 1, Math.ceil(Math.max(ax, bx, cx) + 1));
+    const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy) - 1)), y1 = Math.min(S - 1, Math.ceil(Math.max(ay, by, cy) + 1));
+    const e = 1.5 / Math.max(1, Math.sqrt(Math.abs(den)));     // a little slack so edge texels are covered too
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = x + .5, py = y + .5;
+      const w0 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / den, w1 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / den, w2 = 1 - w0 - w1;
+      if (w0 < -e || w1 < -e || w2 < -e) continue;
+      const o = (y * S + x) * 3; if (!isNaN(pPos[o])) continue;
+      pPos[o] = pos.getX(a) * w0 + pos.getX(b) * w1 + pos.getX(c) * w2;
+      pPos[o + 1] = pos.getY(a) * w0 + pos.getY(b) * w1 + pos.getY(c) * w2;
+      pPos[o + 2] = pos.getZ(a) * w0 + pos.getZ(b) * w1 + pos.getZ(c) * w2;
+    }
+  }
+  geo.computeBoundingBox(); const sz = new THREE.Vector3(); geo.boundingBox.getSize(sz); pWidth = sz.x;
+  pCell = pWidth * .14; pGrid = new Map();
+  for (let i = 0; i < S * S; i++) {
+    const o = i * 3; if (isNaN(pPos[o])) continue;
+    const k = Math.floor(pPos[o] / pCell) + ',' + Math.floor(pPos[o + 1] / pCell) + ',' + Math.floor(pPos[o + 2] / pCell);
+    let l = pGrid.get(k); if (!l) pGrid.set(k, l = []); l.push(i);
+  }
+}
 function loadBase(k) {
   pBase = (k + BUILTIN) % BUILTIN;
   $('pName').textContent = 'もち ' + (pBase + 1) + '/' + BUILTIN;
   const K = KINDS[pBase];
   pCtx.globalCompositeOperation = 'source-over';
   pCtx.drawImage(K.mat.map.image, 0, 0, 512, 512);
+  pData = pCtx.getImageData(0, 0, 512, 512);
   // luminance of the original, so "いろだけ" keeps the face lines and shading
-  const d = pCtx.getImageData(0, 0, 512, 512).data; pLum = new Float32Array(512 * 512); const hist = [];
+  const d = pData.data; pLum = new Float32Array(512 * 512); const hist = [];
   for (let i = 0; i < pLum.length; i++) { pLum[i] = (d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11) / 255; if (i % 97 === 0) hist.push(pLum[i]); }
   hist.sort((a, b) => a - b); pBodyLum = Math.max(.25, hist[Math.floor(hist.length * .6)]);
+  buildSurfaceMap(K.geo);
   pUndo = []; pTex.needsUpdate = true;
   if (pMesh) pGroup.remove(pMesh);
   const mat = K.mat.clone(); mat.map = pTex;
   pMesh = new THREE.Mesh(K.geo, mat); pMesh.scale.setScalar(K.scale * 4.4); pGroup.add(pMesh);
 }
-function tintPx(data, i, rgb) {
+function tintPx(data, i, rgb, a = 1) {
   const l = Math.min(1.15, pLum[i] / pBodyLum), w = l > 1 ? (l - 1) / .15 : 0;
-  for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.min(255, rgb[c] * Math.min(1, l) * (1 - w * .5) + 255 * w * .5);
+  for (let c = 0; c < 3; c++) { const v = Math.min(255, rgb[c] * Math.min(1, l) * (1 - w * .5) + 255 * w * .5); data[i * 4 + c] += (v - data[i * 4 + c]) * a; }
 }
+const flushPaint = () => { pCtx.putImageData(pData, 0, 0); pTex.needsUpdate = true; };
 function fillAll() {
   pushUndo();
-  const img = pCtx.getImageData(0, 0, 512, 512), rgb = hex(pColor);
-  for (let i = 0; i < pLum.length; i++) tintPx(img.data, i, rgb);
-  pCtx.putImageData(img, 0, 0); pTex.needsUpdate = true;
+  const rgb = hex(pColor);
+  for (let i = 0; i < pLum.length; i++) tintPx(pData.data, i, rgb);
+  flushPaint();
 }
-function pushUndo() { pUndo.push(pCtx.getImageData(0, 0, 512, 512)); if (pUndo.length > 15) pUndo.shift(); }
-function dab(u, v) {
-  const x = u * 512, y = v * 512, r = pSize * .5;
-  if (pTool === 'pen') { pCtx.fillStyle = pColor; pCtx.beginPath(); pCtx.arc(x, y, r, 0, 7); pCtx.fill(); }
-  else {
-    const x0 = Math.max(0, Math.floor(x - r)), y0 = Math.max(0, Math.floor(y - r)), w = Math.min(512, Math.ceil(x + r)) - x0, h = Math.min(512, Math.ceil(y + r)) - y0;
-    if (w <= 0 || h <= 0) return;
-    const img = pCtx.getImageData(x0, y0, w, h), rgb = hex(pColor);
-    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
-      if ((x0 + xx - x) ** 2 + (y0 + yy - y) ** 2 > r * r) continue;
-      const li = (y0 + yy) * 512 + x0 + xx;
-      const l = Math.min(1.15, pLum[li] / pBodyLum), ww = l > 1 ? (l - 1) / .15 : 0, o = (yy * w + xx) * 4;
-      for (let c = 0; c < 3; c++) img.data[o + c] = Math.min(255, rgb[c] * Math.min(1, l) * (1 - ww * .5) + 255 * ww * .5);
+function pushUndo() { pUndo.push(new Uint8ClampedArray(pData.data)); if (pUndo.length > 15) pUndo.shift(); }
+function dab(p) {      // p: a point on the model surface
+  const r = pWidth * .07 * (pSize / 20), r2 = r * r, rgb = hex(pColor), d = pData.data;
+  const cx = Math.floor(p.x / pCell), cy = Math.floor(p.y / pCell), cz = Math.floor(p.z / pCell), n = Math.ceil(r / pCell);
+  for (let ix = cx - n; ix <= cx + n; ix++) for (let iy = cy - n; iy <= cy + n; iy++) for (let iz = cz - n; iz <= cz + n; iz++) {
+    const l = pGrid.get(ix + ',' + iy + ',' + iz); if (!l) continue;
+    for (const i of l) {
+      const o = i * 3, dd = (pPos[o] - p.x) ** 2 + (pPos[o + 1] - p.y) ** 2 + (pPos[o + 2] - p.z) ** 2;
+      if (dd > r2) continue;
+      const a = Math.min(1, (1 - Math.sqrt(dd) / r) * 3);      // soft edge
+      if (pTool === 'pen') for (let c = 0; c < 3; c++) d[i * 4 + c] += (rgb[c] - d[i * 4 + c]) * a;
+      else tintPx(d, i, rgb, a);
     }
-    pCtx.putImageData(img, x0, y0);
   }
-  pTex.needsUpdate = true;
 }
-function hitUV(e) {
+function hitPoint(clientX, clientY) {
   const r = pc.getBoundingClientRect();
-  pv2.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  pv2.set((clientX - r.left) / r.width * 2 - 1, -(clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(pv2, pCam);
   const h = ray.intersectObject(pMesh)[0];
-  return h && h.uv ? h.uv : null;
+  return h ? pMesh.worldToLocal(h.point.clone()) : null;
 }
 pc.addEventListener('pointerdown', e => {
-  const uv = hitUV(e); pc.setPointerCapture(e.pointerId);
-  if (uv && pTool !== 'all') { pushUndo(); pDrag = { paint: true, last: uv.clone() }; dab(uv.x, uv.y); }
+  const p = hitPoint(e.clientX, e.clientY); pc.setPointerCapture(e.pointerId);
+  if (p && pTool !== 'all') { pushUndo(); pDrag = { paint: true, x: e.clientX, y: e.clientY }; dab(p); flushPaint(); }
   else pDrag = { paint: false, x: e.clientX, y: e.clientY, ry: pGroup.rotation.y, rx: pGroup.rotation.x };
 });
 pc.addEventListener('pointermove', e => {
   if (!pDrag) return;
   if (pDrag.paint) {
-    const uv = hitUV(e); if (!uv) return;
-    const d = Math.hypot((uv.x - pDrag.last.x) * 512, (uv.y - pDrag.last.y) * 512);
-    if (d < 40) { const n = Math.max(1, Math.ceil(d / (pSize * .3))); for (let i = 1; i <= n; i++) dab(pDrag.last.x + (uv.x - pDrag.last.x) * i / n, pDrag.last.y + (uv.y - pDrag.last.y) * i / n); }
-    else dab(uv.x, uv.y);
-    pDrag.last.copy(uv);
+    // follow the finger on screen in small steps; each step paints where it touches the mochi (nothing if it leaves the mochi)
+    const dx = e.clientX - pDrag.x, dy = e.clientY - pDrag.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+    for (let i = 1; i <= n; i++) { const p = hitPoint(pDrag.x + dx * i / n, pDrag.y + dy * i / n); if (p) dab(p); }
+    pDrag.x = e.clientX; pDrag.y = e.clientY; flushPaint();
   } else {
     pGroup.rotation.y = pDrag.ry + (e.clientX - pDrag.x) * .012;
     pGroup.rotation.x = THREE.MathUtils.clamp(pDrag.rx + (e.clientY - pDrag.y) * .008, -.9, .9);
@@ -1768,7 +1799,7 @@ const pEnd = () => { pDrag = null; };
 pc.addEventListener('pointerup', pEnd); pc.addEventListener('pointercancel', pEnd);
 $('pPrev').onclick = () => loadBase(pBase - 1);
 $('pNext').onclick = () => loadBase(pBase + 1);
-$('pUndo').onclick = () => { const d = pUndo.pop(); if (d) { pCtx.putImageData(d, 0, 0); pTex.needsUpdate = true; } };
+$('pUndo').onclick = () => { const d = pUndo.pop(); if (d) { pData.data.set(d); flushPaint(); } };
 $('pReset').onclick = () => loadBase(pBase);
 function paintLoop() {
   if (!pOpen) return;
