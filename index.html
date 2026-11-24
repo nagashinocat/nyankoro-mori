@@ -1683,8 +1683,8 @@ function initPaint() {
   const d = new THREE.DirectionalLight(0xffffff, 1.6); d.position.set(1, 2, 3); pScene.add(d);
   pCam = new THREE.PerspectiveCamera(32, 1, .1, 20); pCam.position.set(0, .3, 4.2); pCam.lookAt(0, 0, 0);
   pGroup = new THREE.Group(); pScene.add(pGroup);
-  pCanvas = document.createElement('canvas'); pCanvas.width = pCanvas.height = 512; pCtx = pCanvas.getContext('2d', { willReadFrequently: true });
-  pTex = new THREE.CanvasTexture(pCanvas); pTex.flipY = false; pTex.colorSpace = THREE.SRGBColorSpace; pTex.anisotropy = 4;
+  pCanvas = document.createElement('canvas'); pCanvas.width = pCanvas.height = PS; pCtx = pCanvas.getContext('2d', { willReadFrequently: true });
+  pTex = new THREE.CanvasTexture(pCanvas); pTex.flipY = false; pTex.colorSpace = THREE.SRGBColorSpace; pTex.generateMipmaps = false; pTex.minFilter = THREE.LinearFilter;     // no blur across the texture's pieces
   const pal = $('pPal');
   for (const c of PAL) {
     const b = document.createElement('button'); b.className = 'sw' + (c === pColor ? ' on' : ''); b.style.background = c; b.setAttribute('aria-label', '色 ' + c);
@@ -1697,11 +1697,12 @@ function initPaint() {
   });
 }
 // The brush paints by distance on the mochi's surface, not on the flat texture, so it never jumps to other parts of the texture
-let pData = null, pPos = null, pGrid = null, pCell = .1, pWidth = 1;
+const PS = 1024;      // paint texture size (finer than the game's 512, so seams bleed less)
+let pData = null, pPos = null, pNrm = null, pGrid = null, pCell = .1, pWidth = 1;
 function buildSurfaceMap(geo) {
   // for every texel: the point on the model it belongs to (rasterised from the triangles' UVs)
-  const S = 512, pos = geo.attributes.position, uv = geo.attributes.uv, idx = geo.index;
-  pPos = new Float32Array(S * S * 3).fill(NaN);
+  const S = PS, pos = geo.attributes.position, uv = geo.attributes.uv, nr = geo.attributes.normal, idx = geo.index;
+  pPos = new Float32Array(S * S * 3).fill(NaN); pNrm = new Float32Array(S * S * 3);
   const tri = idx ? idx.count / 3 : pos.count / 3, gi = i => idx ? idx.getX(i) : i;
   for (let t = 0; t < tri; t++) {
     const a = gi(t * 3), b = gi(t * 3 + 1), c = gi(t * 3 + 2);
@@ -1718,6 +1719,21 @@ function buildSurfaceMap(geo) {
       pPos[o] = pos.getX(a) * w0 + pos.getX(b) * w1 + pos.getX(c) * w2;
       pPos[o + 1] = pos.getY(a) * w0 + pos.getY(b) * w1 + pos.getY(c) * w2;
       pPos[o + 2] = pos.getZ(a) * w0 + pos.getZ(b) * w1 + pos.getZ(c) * w2;
+      let nx = nr.getX(a) * w0 + nr.getX(b) * w1 + nr.getX(c) * w2, ny = nr.getY(a) * w0 + nr.getY(b) * w1 + nr.getY(c) * w2, nz = nr.getZ(a) * w0 + nr.getZ(b) * w1 + nr.getZ(c) * w2;
+      const nl = Math.hypot(nx, ny, nz) || 1; pNrm[o] = nx / nl; pNrm[o + 1] = ny / nl; pNrm[o + 2] = nz / nl;
+    }
+  }
+  // grow each piece a few texels into the gaps between pieces, so the seams get painted too
+  for (let pass = 0; pass < 4; pass++) {
+    const src = pPos.slice(), srcN = pNrm.slice();
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const o = (y * S + x) * 3; if (!isNaN(src[o])) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= S || yy >= S) continue;
+        const q = (yy * S + xx) * 3; if (isNaN(src[q])) continue;
+        for (let k = 0; k < 3; k++) { pPos[o + k] = src[q + k]; pNrm[o + k] = srcN[q + k]; }
+        break;
+      }
     }
   }
   geo.computeBoundingBox(); const sz = new THREE.Vector3(); geo.boundingBox.getSize(sz); pWidth = sz.x;
@@ -1733,10 +1749,10 @@ function loadBase(k) {
   $('pName').textContent = 'もち ' + (pBase + 1) + '/' + BUILTIN;
   const K = KINDS[pBase];
   pCtx.globalCompositeOperation = 'source-over';
-  pCtx.drawImage(K.mat.map.image, 0, 0, 512, 512);
-  pData = pCtx.getImageData(0, 0, 512, 512);
+  pCtx.imageSmoothingQuality = 'high'; pCtx.drawImage(K.mat.map.image, 0, 0, PS, PS);
+  pData = pCtx.getImageData(0, 0, PS, PS);
   // luminance of the original, so "いろだけ" keeps the face lines and shading
-  const d = pData.data; pLum = new Float32Array(512 * 512); const hist = [];
+  const d = pData.data; pLum = new Float32Array(PS * PS); const hist = [];
   for (let i = 0; i < pLum.length; i++) { pLum[i] = (d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11) / 255; if (i % 97 === 0) hist.push(pLum[i]); }
   hist.sort((a, b) => a - b); pBodyLum = Math.max(.25, hist[Math.floor(hist.length * .6)]);
   buildSurfaceMap(K.geo);
@@ -1757,14 +1773,15 @@ function fillAll() {
   flushPaint();
 }
 function pushUndo() { pUndo.push(new Uint8ClampedArray(pData.data)); if (pUndo.length > 15) pUndo.shift(); }
-function dab(p) {      // p: a point on the model surface
+function dab(p, n) {      // p: a point on the model surface, n: which way that surface faces
   const r = pWidth * .07 * (pSize / 20), r2 = r * r, rgb = hex(pColor), d = pData.data;
-  const cx = Math.floor(p.x / pCell), cy = Math.floor(p.y / pCell), cz = Math.floor(p.z / pCell), n = Math.ceil(r / pCell);
-  for (let ix = cx - n; ix <= cx + n; ix++) for (let iy = cy - n; iy <= cy + n; iy++) for (let iz = cz - n; iz <= cz + n; iz++) {
+  const cx = Math.floor(p.x / pCell), cy = Math.floor(p.y / pCell), cz = Math.floor(p.z / pCell), m = Math.ceil(r / pCell);
+  for (let ix = cx - m; ix <= cx + m; ix++) for (let iy = cy - m; iy <= cy + m; iy++) for (let iz = cz - m; iz <= cz + m; iz++) {
     const l = pGrid.get(ix + ',' + iy + ',' + iz); if (!l) continue;
     for (const i of l) {
       const o = i * 3, dd = (pPos[o] - p.x) ** 2 + (pPos[o + 1] - p.y) ** 2 + (pPos[o + 2] - p.z) ** 2;
       if (dd > r2) continue;
+      if (pNrm[o] * n.x + pNrm[o + 1] * n.y + pNrm[o + 2] * n.z < .2) continue;      // not the other side of a thin part
       const a = Math.min(1, (1 - Math.sqrt(dd) / r) * 3);      // soft edge
       if (pTool === 'pen') for (let c = 0; c < 3; c++) d[i * 4 + c] += (rgb[c] - d[i * 4 + c]) * a;
       else tintPx(d, i, rgb, a);
@@ -1776,11 +1793,11 @@ function hitPoint(clientX, clientY) {
   pv2.set((clientX - r.left) / r.width * 2 - 1, -(clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(pv2, pCam);
   const h = ray.intersectObject(pMesh)[0];
-  return h ? pMesh.worldToLocal(h.point.clone()) : null;
+  return h ? { p: pMesh.worldToLocal(h.point.clone()), n: h.face.normal.clone() } : null;
 }
 pc.addEventListener('pointerdown', e => {
   const p = hitPoint(e.clientX, e.clientY); pc.setPointerCapture(e.pointerId);
-  if (p && pTool !== 'all') { pushUndo(); pDrag = { paint: true, x: e.clientX, y: e.clientY }; dab(p); flushPaint(); }
+  if (p && pTool !== 'all') { pushUndo(); pDrag = { paint: true, x: e.clientX, y: e.clientY }; dab(p.p, p.n); flushPaint(); }
   else pDrag = { paint: false, x: e.clientX, y: e.clientY, ry: pGroup.rotation.y, rx: pGroup.rotation.x };
 });
 pc.addEventListener('pointermove', e => {
@@ -1788,7 +1805,7 @@ pc.addEventListener('pointermove', e => {
   if (pDrag.paint) {
     // follow the finger on screen in small steps; each step paints where it touches the mochi (nothing if it leaves the mochi)
     const dx = e.clientX - pDrag.x, dy = e.clientY - pDrag.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
-    for (let i = 1; i <= n; i++) { const p = hitPoint(pDrag.x + dx * i / n, pDrag.y + dy * i / n); if (p) dab(p); }
+    for (let i = 1; i <= n; i++) { const p = hitPoint(pDrag.x + dx * i / n, pDrag.y + dy * i / n); if (p) dab(p.p, p.n); }
     pDrag.x = e.clientX; pDrag.y = e.clientY; flushPaint();
   } else {
     pGroup.rotation.y = pDrag.ry + (e.clientX - pDrag.x) * .012;
