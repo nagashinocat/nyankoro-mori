@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>にゃんころ盛り</title>
+<meta name="description" content="にゃんころもちを投げて、お皿や重箱にきれいに盛る60秒ゲーム。形がそろうと役カードがもらえる。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="にゃんころ盛り">
+<meta property="og:description" content="にゃんころもちを投げて、お皿や重箱にきれいに盛る60秒ゲーム。形がそろうと役カードがもらえる。">
+<meta property="og:url" content="https://nagashinocat.github.io/nyankoro-mori/">
+<meta property="og:image" content="https://nagashinocat.github.io/nyankoro-mori/ogp.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ff9ccc">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: 駄菓子屋のおもちゃ箱みたいに、にぎやかでポップ
+IDEA: サンバーストの舞台で、キャンディ色の台にのった大皿へもちを盛る。役が出たらトレカになる
+PICTURE: 画面いっぱいの3D。回る放射線の背景、ミントの水玉の床、赤い台と大皿
+COLOUR and TYPE: ピンク #ff5fa2、レモン #ffe066、ミント #8ee6cf、ふち取りの濃紫 #3b1f4a / Dela Gothic One + Zen Maru Gothic
+LAYOUT: 縦画面。上に時間と点数、点数の下に集めた役カード、左にかたむき、右下につぎのもち
+*/
+:root{color-scheme:light;--ink:#3b1f4a;--pink:#ff5fa2;--lemon:#ffe066;--mint:#8ee6cf;--sky:#9fd3ff}
+*{box-sizing:border-box;min-width:0}
+html,body{touch-action:manipulation;margin:0;height:100%;background:#ffb3d9;color:var(--ink);font:16px/1.5 "Zen Maru Gothic",system-ui,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.pop{font-family:"Dela Gothic One","Zen Maru Gothic",sans-serif;color:#fff;-webkit-text-stroke:7px var(--ink);paint-order:stroke fill;letter-spacing:.02em}
+.hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) 12px 0;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+.time{font-size:48px;line-height:1}
+.time.low{color:var(--pink)}
+.scorebox{background:var(--lemon);border:3px solid var(--ink);border-radius:18px;box-shadow:3px 3px 0 var(--ink);padding:4px 14px 6px;text-align:right}
+.scorebox b{display:block;font:400 28px/1.1 "Dela Gothic One",sans-serif}
+.scorebox span{font-size:13px;font-weight:900}
+.tray{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 82px);display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:60%;pointer-events:none}
+.tray img{width:34px;height:46px;object-fit:cover;border:2px solid var(--ink);border-radius:6px;background:#fff;box-shadow:2px 2px 0 var(--ink)}
+.kingl{position:fixed;left:12px;top:calc(env(safe-area-inset-top) + 64px);background:#fff;border:3px solid var(--ink);border-radius:99px;padding:1px 10px;font-size:13px;font-weight:900;box-shadow:2px 2px 0 var(--ink);pointer-events:none;max-width:62%}
+.tilt{position:fixed;left:12px;top:40%;width:20px;height:150px;border-radius:12px;background:#fff;border:3px solid var(--ink);overflow:hidden;pointer-events:none;box-shadow:2px 2px 0 var(--ink)}
+.tilt i{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(var(--pink),var(--lemon) 50%,var(--mint));background-size:100% 144px;background-position:bottom}
+.tilt-l{position:fixed;left:4px;top:calc(40% + 156px);font-size:13px;font-weight:900;pointer-events:none}
+.next{position:fixed;font-size:18px;pointer-events:none;transform:translate(-50%,-100%)}
+.hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 12px);text-align:center;font-size:15px;font-weight:900;pointer-events:none;transition:opacity .3s}
+.hint span{background:#fff;border:3px solid var(--ink);border-radius:99px;padding:3px 14px;box-shadow:2px 2px 0 var(--ink)}
+.toast{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) scale(.6);opacity:0;font-size:clamp(30px,9vw,46px);white-space:nowrap;pointer-events:none;transition:transform .35s cubic-bezier(.2,1.6,.4,1),opacity .25s}
+.toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.rcard{width:210px;border:4px solid var(--ink);border-radius:18px;padding:9px 9px 10px;background:linear-gradient(135deg,#ff9ccc,#ffe066 35%,#8ee6cf 65%,#9fd3ff);box-shadow:5px 5px 0 var(--ink);text-align:center;position:relative}
+.rcard.N{background:linear-gradient(160deg,#ffffff,#e4e0e8)}
+.rcard.R{background:linear-gradient(160deg,#c9ecff,#46c2ff)}
+.rcard.SR{background:linear-gradient(160deg,#fff4b8,#ffc93c 60%,#ffe066)}
+.rcard.SSR{background:linear-gradient(120deg,#ff9ccc,#ffe066,#8ee6cf,#9fd3ff,#b48cff,#ff9ccc);background-size:300% 300%;animation:holo 2.4s linear infinite}
+.rcard.UR{background:linear-gradient(120deg,#2b1240,#5a1f7a,#2b1240);color:#fff;box-shadow:0 0 0 3px #ffe066,0 0 24px 6px #ff5fa2,5px 5px 0 var(--ink)}
+.rcard.UR .nm,.rcard.UR .pt{color:#fff}
+.rcard.SSR::after,.rcard.UR::after{content:"";position:absolute;inset:0;border-radius:14px;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.65) 50%,transparent 65%);background-size:250% 100%;animation:shine 1.6s linear infinite;pointer-events:none}
+.rcard.N .st{background:#9a92a6}.rcard.R .st{background:#2f8fe0}.rcard.SR .st{background:#f0a400}.rcard.SSR .st{background:linear-gradient(90deg,#ff5fa2,#b48cff)}.rcard.UR .st{background:#ffe066;color:var(--ink)}
+@keyframes holo{to{background-position:300% 0}}
+@keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0}
+.mute{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:6;min-height:44px;width:44px;padding:0;margin:0;font:900 18px/1 "Zen Maru Gothic",sans-serif;background:#fff;color:var(--ink);box-shadow:2px 2px 0 var(--ink)}
+.mute.off{opacity:.55;text-decoration:line-through}
+details.zk{margin:10px 0 0;text-align:left;border:3px solid var(--ink);border-radius:14px;background:#fff6c9}
+.ex{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 10px 10px}
+.ex div{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:6px;text-align:center}
+.ex svg{width:100%;height:auto;display:block}
+.ex b{display:block;font-size:13px;line-height:1.3}
+.ex span{display:block;font-size:12px;font-weight:700;color:#c2306f}
+details.zk summary{cursor:pointer;padding:8px 12px;font-weight:900;min-height:44px;display:flex;align-items:center}
+.zl{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;padding:0 12px 10px;font-size:13px}
+.zl b{font-size:11px;border:2px solid var(--ink);border-radius:6px;padding:0 4px;text-align:center;align-self:start;margin-top:2px}
+.zl span{font-weight:700}.zl span i{font-style:normal;font-weight:400;display:block;font-size:12px}
+.zl .no{opacity:.45}
+.rcard img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border:3px solid #fff;border-radius:11px;background:#fff}
+.rcard .nm{white-space:nowrap;font:400 17px/1.15 "Dela Gothic One",sans-serif;margin-top:7px;color:var(--ink)}
+.rcard .pt{font-weight:900;font-size:14px}
+.rcard .st{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;border:3px solid var(--ink);border-radius:99px;padding:0 10px;font-size:13px;font-weight:900;white-space:nowrap}
+#cardPop{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);pointer-events:none;z-index:5}
+.screen{position:fixed;inset:0;display:grid;place-items:center;padding:20px;background:rgba(255,179,217,.55);z-index:10}
+.screen[hidden]{display:none}
+.card{width:min(390px,100%);max-height:100%;overflow:auto;background:#fff;border:4px solid var(--ink);border-radius:24px;padding:20px 18px;text-align:center;box-shadow:7px 7px 0 var(--ink)}
+h1.logo{margin:-6px -8px 2px}
+h1.logo img{display:block;width:100%;height:auto}
+h1{margin:0 0 4px;font-size:44px;line-height:1.05;font-weight:400;text-wrap:balance}
+h2{margin:0 0 4px;font-size:30px;line-height:1.1;font-weight:400;text-wrap:balance}
+.card p{margin:6px 0;font-size:15px;font-weight:700}
+.rules{text-align:left;margin:10px 0;padding:0;list-style:none;font-size:15px;font-weight:700}
+.rules li{padding:3px 0 3px 1.4em;position:relative}
+.rules li::before{content:"";position:absolute;left:0;top:.6em;width:.7em;height:.7em;border-radius:50%;background:var(--pink);border:2px solid var(--ink)}
+.yk{display:grid;grid-template-columns:1fr auto;gap:3px 12px;text-align:left;font-size:14px;margin:10px 0 4px;background:#fff6c9;border:3px solid var(--ink);border-radius:14px;padding:8px 12px}
+.yk dt{font-weight:900}.yk dd{margin:0;text-align:right;font-weight:900;white-space:nowrap;color:#c2306f}
+button{font:400 21px/1 "Dela Gothic One",sans-serif;color:#fff;background:var(--pink);border:3px solid var(--ink);border-radius:99px;min-height:54px;padding:0 36px;margin-top:12px;cursor:pointer;box-shadow:4px 4px 0 var(--ink)}
+button:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+.big{font:400 54px/1.1 "Dela Gothic One",sans-serif;color:var(--pink);margin:2px 0}
+.small{font-size:13px;font-weight:700}
+.cards{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:18px 4px 12px;margin:0 -4px}
+.cards .rcard{flex:none;width:150px;scroll-snap-align:center;padding:7px}
+.cards .rcard .nm{font-size:13px;white-space:normal}
+.load{position:fixed;inset:0;display:grid;place-items:center;font-size:24px;z-index:20}
+a.lnk{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:3px solid var(--ink);border-radius:99px;background:var(--ink);color:#fff;font-weight:900;font-size:15px;text-decoration:none;box-shadow:3px 3px 0 var(--pink)}
+a.lnk:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+#share{z-index:12}
+button.jb{background:#1c1016;box-shadow:4px 4px 0 #d2232a}
+button.sub{background:var(--sky);color:var(--ink);-webkit-text-stroke:0;font-size:17px;min-height:46px;padding:0 22px}
+.my{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.my div{position:relative}
+.my img{width:52px;height:52px;border:3px solid var(--ink);border-radius:12px;background:#fff;display:block}
+.my button{position:absolute;top:-8px;right:-8px;min-height:0;width:24px;height:24px;padding:0;margin:0;font:900 14px/1 "Zen Maru Gothic",sans-serif;border-width:2px;box-shadow:none;background:#fff;color:var(--ink)}
+#paint{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 35%,#fff6c9,#ffb3d9 70%);padding:calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 10px)}
+#paint[hidden]{display:none}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ph h2{margin:0;font-size:28px}
+.ph button{margin:0}
+#pc{flex:1;width:100%;min-height:200px;touch-action:none;display:block}
+.prow{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:8px}
+.prow button{margin:0;min-height:44px;padding:0 14px;font-size:15px}
+.prow button.on{background:var(--lemon);color:var(--ink);-webkit-text-stroke:0}
+.prow .lbl{font-weight:900;min-width:6.5em;text-align:center}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid var(--ink);padding:0;margin:0;min-height:0;box-shadow:2px 2px 0 var(--ink)}
+.sw.on{outline:3px solid #fff;outline-offset:2px}
+#splash{cursor:pointer;background:radial-gradient(circle at 50% 45%,#fff6c9,rgba(255,179,217,.85) 70%)}
+.hop{text-align:center;display:flex;flex-direction:column;align-items:center}
+.hopm{width:min(46vw,200px);height:min(46vw,200px);transform-origin:50% 100%;animation:hop 1s cubic-bezier(.3,0,.7,1) infinite}
+.hopm img{width:100%;height:100%;display:block}
+.hops{width:min(34vw,150px);height:18px;margin-top:-10px;border-radius:50%;background:rgba(59,31,74,.22);animation:hopShadow 1s cubic-bezier(.3,0,.7,1) infinite}
+.tap{font-size:56px;line-height:1;margin:26px 0 6px;animation:tapPulse 1s ease-in-out infinite}
+@keyframes hop{0%{transform:translateY(0) scale(1.22,.78)}12%{transform:translateY(-14px) scale(.88,1.14)}50%{transform:translateY(-150px) scale(1,1) rotate(6deg)}88%{transform:translateY(-12px) scale(.92,1.1)}100%{transform:translateY(0) scale(1.22,.78)}}
+@keyframes hopShadow{0%,100%{transform:scale(1.15);opacity:1}50%{transform:scale(.55);opacity:.45}}
+@keyframes tapPulse{0%,100%{transform:scale(1)}8%{transform:scale(1.18)}20%{transform:scale(.96)}}
+#op{position:fixed;inset:0;z-index:9}
+body.opening .hud,body.opening .tilt,body.opening .tilt-l,body.opening .kingl,body.opening .tray,body.opening .next,body.opening .hint{display:none}
+#opSkip{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:12px;margin:0;min-height:40px;font-size:15px;padding:0 16px;z-index:11}
+#opBanner{position:fixed;left:50%;top:16%;transform:translate(-50%,-50%) scale(0);text-align:center;padding:16px 26px 14px;border-radius:22px;background:linear-gradient(120deg,#2b1240,#5a1f7a,#2b1240);border:4px solid #ffe066;box-shadow:0 0 0 4px #3b1f4a,0 0 40px 12px #ff5fa2,0 0 90px 30px rgba(255,224,102,.6);white-space:nowrap;opacity:0;overflow:hidden}
+#opBanner::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.7) 50%,transparent 65%);background-size:250% 100%;animation:shine 1.3s linear infinite}
+#opBanner.on{animation:slam .7s cubic-bezier(.2,1.6,.4,1) forwards,rainbowglow 1.2s linear infinite .7s}
+#opBanner.rN{background:linear-gradient(160deg,#fff,#e4e0e8);box-shadow:0 0 0 4px #3b1f4a}
+#opBanner.rR{background:linear-gradient(160deg,#c9ecff,#2f8fe0);box-shadow:0 0 0 4px #3b1f4a,0 0 30px 6px #46c2ff}
+#opBanner.rSR{background:linear-gradient(160deg,#fff4b8,#ffc93c 60%,#f0a400);box-shadow:0 0 0 4px #3b1f4a,0 0 34px 8px #ffe066}
+#opBanner.rSSR{background:linear-gradient(120deg,#ff9ccc,#ffe066,#8ee6cf,#9fd3ff,#b48cff,#ff9ccc);background-size:300% 300%;box-shadow:0 0 0 4px #3b1f4a,0 0 40px 10px #ff9ccc}
+#opBanner.rN .nm1,#opBanner.rR .nm1,#opBanner.rSR .nm1,#opBanner.rSSR .nm1{background:none;color:#fff;-webkit-text-stroke:6px #3b1f4a;paint-order:stroke fill;filter:none}
+#opBanner.rN .pts,#opBanner.rR .pts,#opBanner.rSR .pts,#opBanner.rSSR .pts{color:#3b1f4a}
+#opBanner.on:not(.big){animation:slam .45s cubic-bezier(.2,1.6,.4,1) forwards}
+#opBanner .nm2:empty{display:none}
+#opBanner .ur{display:inline-block;font:400 22px/1 "Dela Gothic One",sans-serif;color:#3b1f4a;background:#ffe066;border-radius:99px;padding:5px 16px;margin-bottom:6px}
+#opBanner .nm1,#opBanner .nm2{font:400 clamp(26px,8vw,44px)/1.1 "Dela Gothic One",sans-serif;background:linear-gradient(90deg,#ff5fa2,#ffe066,#8ee6cf,#46c2ff,#b48cff,#ff5fa2);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:holo 1.5s linear infinite;filter:drop-shadow(0 3px 0 #000)}
+#opBanner .pts{font:400 24px/1.2 "Dela Gothic One",sans-serif;color:#fff;margin-top:4px}
+@keyframes slam{0%{transform:translate(-50%,-50%) scale(4) rotate(-12deg);opacity:0}60%{transform:translate(-50%,-50%) scale(.9) rotate(3deg);opacity:1}100%{transform:translate(-50%,-50%) scale(1) rotate(-2deg);opacity:1}}
+@keyframes rainbowglow{0%{box-shadow:0 0 0 4px #3b1f4a,0 0 40px 12px #ff5fa2,0 0 90px 30px rgba(255,224,102,.6)}33%{box-shadow:0 0 0 4px #3b1f4a,0 0 40px 12px #46c2ff,0 0 90px 30px rgba(142,230,207,.6)}66%{box-shadow:0 0 0 4px #3b1f4a,0 0 40px 12px #b48cff,0 0 90px 30px rgba(255,95,162,.6)}100%{box-shadow:0 0 0 4px #3b1f4a,0 0 40px 12px #ff5fa2,0 0 90px 30px rgba(255,224,102,.6)}}
+#opLogo{position:fixed;left:50%;bottom:16%;width:min(94vw,560px);transform:translate(-50%,-140vh);pointer-events:none}
+#opLogo.on{animation:drop .9s cubic-bezier(.3,1.5,.5,1) forwards}
+@keyframes drop{to{transform:translate(-50%,0)}}
+#opTap{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 6%);text-align:center;font-size:24px;margin:0;opacity:0}
+#opTap.on{animation:blink 1.1s ease-in-out infinite .8s}
+@keyframes blink{0%,100%{opacity:0}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.rcard::after,.rcard.SSR{animation:none}.hopm,.hops,.tap{animation:none}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/","cannon-es":"https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"}}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><div class="time pop" id="time">60</div><div class="scorebox"><b id="score">0</b><span id="count">もち 0こ</span></div></div>
+<div class="kingl" id="kingL"></div>
+<div class="tray" id="tray"></div>
+<div class="tilt"><i id="tilt"></i></div><div class="tilt-l">かたむき</div>
+<div class="next pop" id="nextL">つぎ</div>
+<div class="hint" id="hint"><span>下に引いて、はなすと投げる</span></div>
+<div class="toast pop" id="toast"></div>
+<div id="cardPop"></div>
+<div id="flash"></div>
+<button class="mute" id="mute" aria-label="BGMのオンとオフ">♪</button>
+<div class="screen" id="splash" hidden><div class="hop"><div class="hopm"><img id="hopImg" src="hop0.webp" alt="にゃんころもち" width="320" height="320"></div><div class="hops"></div><p class="pop tap">TAP!</p><p class="small">タップしてはじめる（音が出ます）</p></div></div>
+<div id="op" hidden>
+<button class="sub" id="opSkip">スキップ</button>
+<div id="opBanner"><div class="ur">UR</div><div class="nm1">ピラミッドオブ</div><div class="nm2">にゃんころパワー</div><div class="pts">+3000</div></div>
+<img id="opLogo" src="logo.png" alt="にゃんころ盛り">
+<p id="opTap" class="pop">タップしてはじめる</p>
+</div>
+<div class="load pop" id="load">もちをこねています…</div>
+<script>
+// shown if the game never starts (very old browser, no WebGL, or the libraries could not be loaded)
+setTimeout(function () {
+  var el = document.getElementById('load');
+  if (el && !window.__started) { el.style.fontSize = '17px'; el.style.padding = '24px'; el.style.textAlign = 'center'; el.textContent = 'うまく読みこめませんでした。通信のよい場所で再読みこみするか、新しいブラウザ（iPhoneはiOS 16.4以降のSafari、Androidは最新のChrome）で開いてください。'; }
+}, 20000);
+</script>
+
+<div class="screen" id="title" hidden><div class="card">
+<h1 class="logo"><img src="logo.png" alt="にゃんころ盛り" width="1000" height="333"></h1>
+<p>60秒で、にゃんころもちを大皿にきれいに盛ろう！</p>
+<ul class="rules">
+<li>下に引いて、はなすと投げる。左右に引くと向きが変わる</li>
+<li>もちはお皿や他のもちにベチャっと張りつく</li>
+<li>お皿は小さな台の上。片よると皿ごと倒れて0点</li>
+<li>もちは張りついたあと、すき間にすべりこんだり傾いたりする</li>
+<li>1回に出るもちは4種類</li>
+<li>重箱：9マスを埋めると次の段がのる。3段そろえば完成</li>
+<li>役は、ほかのもちからはなれて、ぴったりその形になったときだけ出る</li>
+</ul>
+<details class="zk"><summary>役の見本</summary><p class="small" style="margin:0 12px 6px">どれも、ほかのもちからはなして作るのがコツ</p><div class="ex" id="exList"></div></details>
+<details class="zk"><summary id="zkSum">役カード図鑑</summary><div class="zl" id="zkList"></div></details>
+<button id="start">お皿であそぶ</button><br><button id="startJ" class="jb">重箱であそぶ</button><br>
+<button class="sub" id="toPaint">もちをぬる</button> <button class="sub" id="toOp">オープニング</button>
+<div class="my" id="myList"></div>
+<p class="small" id="myNote"></p>
+<p class="small" id="best"></p>
+</div></div>
+
+<div class="screen" id="share" hidden><div class="card">
+<h2 class="pop">シェアする</h2>
+<img id="shareImg" alt="シェア用の画像" style="-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto;width:100%;border:3px solid var(--ink);border-radius:14px;display:block;margin:8px 0">
+<p class="small" id="shareTip">画像を長押しすると保存できます</p>
+<div class="prow"><button id="shareNative" hidden>画像ごとシェア</button><a class="lnk" id="shareX" target="_blank" rel="noopener">Xにポスト</a><a class="lnk" id="shareLine" target="_blank" rel="noopener">LINEで送る</a><button class="sub" id="shareCopy">文をコピー</button></div>
+<p class="small" id="shareMsg" aria-live="polite"></p>
+<button class="sub" id="shareClose">とじる</button>
+</div></div>
+
+<div id="paint" hidden>
+<div class="ph"><h2 class="pop">もちぬり</h2><button class="sub" id="pClose">もどる</button></div>
+<canvas id="pc"></canvas>
+<p class="small" style="text-align:center;margin:0">もちの上をなぞるとぬれる。外側をドラッグすると回る</p>
+<div class="prow"><button class="sub" id="pPrev" aria-label="前のもち">◀</button><span class="lbl" id="pName">もち 1/14</span><button class="sub" id="pNext" aria-label="次のもち">▶</button></div>
+<div class="prow" id="pTools"><button class="sub on" data-t="tint">いろだけ</button><button class="sub" data-t="pen">ふで</button><button class="sub" data-t="all">ぜんぶ</button>
+<span style="flex-basis:100%;height:0"></span><button class="sub" data-s="10">小</button><button class="sub on" data-s="20">中</button><button class="sub" data-s="38">大</button></div>
+<div class="prow" id="pPal"></div>
+<div class="prow"><button class="sub" id="pUndo">もどす</button><button class="sub" id="pReset">はじめから</button><button id="pSave">これで投げる！</button></div>
+</div>
+
+<div class="screen" id="result" hidden><div class="card">
+<h2 class="pop" id="rTitle">盛りつけ完了！</h2>
+<div class="big" id="rScore">0</div>
+<div class="cards" id="rCards"></div>
+<dl class="yk" id="rList"></dl>
+<button id="again">もう一回</button><br><button class="sub" id="shareBtn">シェアする</button> <button class="sub" id="toTitle">タイトルへ</button>
+<p class="small" id="rBest"></p>
+</div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as CANNON from 'cannon-es';
+{
+const $ = id => document.getElementById(id);
+const canvas = $('c');
+if (!document.createElement('canvas').getContext('webgl2') && !document.createElement('canvas').getContext('webgl')) {
+  $('load').textContent = 'この端末では3D表示（WebGL）が使えないため、遊べません';
+  throw new Error('no webgl');
+}
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffb3d9);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .55;
+const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 60);
+const camBase = new THREE.Vector3(0, 3.7, 6.3), camLook = new THREE.Vector3(0, 1.05, -0.1);
+
+// ---- lights
+const hemi = new THREE.HemisphereLight(0xffffff, 0xffc2dc, 1.3); scene.add(hemi);
+const key = new THREE.DirectionalLight(0xfff6e8, 2.0);
+key.position.set(2.5, 8, 4); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: 1, far: 18 });
+key.shadow.bias = -0.0008; key.shadow.normalBias = 0.02; key.shadow.radius = 4;
+scene.add(key);
+
+// ---- stage: sunburst wall, polka-dot floor, confetti
+const burstMat = new THREE.ShaderMaterial({
+  uniforms: { t: { value: 0 }, dim: { value: 0 }, rainbow: { value: 0 } }, toneMapped: false,
+  vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `varying vec2 vUv;uniform float t,dim,rainbow;
+  void main(){vec2 p=vUv-vec2(.5,.38);p.x*=1.6;float a=atan(p.y,p.x)+t*.06;float r=length(p);
+  float ray=smoothstep(-.02,.02,sin(a*16.));
+  vec3 c=mix(vec3(1.,.55,.76),vec3(1.,.72,.86),ray);
+  c=mix(vec3(1.,.95,.62),c,smoothstep(.02,.32,r));
+  vec3 hc=clamp(abs(mod((a/6.2832+t*.2)*6.+vec3(0.,4.,2.),6.)-3.)-1.,0.,1.);
+  c=mix(c,mix(hc,vec3(1.),.35),rainbow*.55*ray);
+  c*=1.-dim;
+  gl_FragColor=vec4(c,1.);}`
+});
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(70, 40), burstMat);
+wall.position.set(0, 8, -11); scene.add(wall);
+function dotTex(bg, dot, n) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 128, 128); x.fillStyle = dot;
+  for (const [a, b] of [[32, 32], [96, 96]]) { x.beginPath(); x.arc(a, b, 14, 0, 7); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(n, n); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 24), new THREE.MeshStandardMaterial({ map: dotTex('#8ee6cf', '#ffffff', 14), roughness: .9 }));
+floor.rotation.x = -Math.PI / 2; floor.position.z = 1; floor.receiveShadow = true; scene.add(floor);
+const confetti = [];
+{
+  const cols = [0xff5fa2, 0xffe066, 0x46c2ff, 0xffffff, 0x8ee6cf, 0xb48cff], g = new THREE.PlaneGeometry(.12, .2);
+  for (let i = 0; i < 46; i++) {
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: cols[i % cols.length], side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set((Math.random() - .5) * 12, Math.random() * 9, -3 - Math.random() * 6);
+    m.userData = { v: .3 + Math.random() * .5, s: Math.random() * 6, r: (Math.random() - .5) * 4 };
+    scene.add(m); confetti.push(m);
+  }
+}
+
+// ---- table (visual)
+const candy = new THREE.MeshPhysicalMaterial({ color: 0xff4d7e, roughness: .25, clearcoat: 1, clearcoatRoughness: .2 });
+const stripeC = document.createElement('canvas'); stripeC.width = 64; stripeC.height = 64;
+{ const x = stripeC.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#ff4d7e'; for (let i = -64; i < 128; i += 22) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 11, 0); x.lineTo(i + 11 + 64, 64); x.lineTo(i + 64, 64); x.fill(); } }
+const stripeT = new THREE.CanvasTexture(stripeC); stripeT.wrapS = stripeT.wrapT = THREE.RepeatWrapping; stripeT.repeat.set(3, 2); stripeT.colorSpace = THREE.SRGBColorSpace;
+const tableG = new THREE.Group();
+const top = new THREE.Mesh(new THREE.CylinderGeometry(.6, .57, .09, 48), candy); top.position.y = .955;
+const leg = new THREE.Mesh(new THREE.CylinderGeometry(.13, .15, .9, 32), new THREE.MeshPhysicalMaterial({ map: stripeT, roughness: .3, clearcoat: 1 })); leg.position.y = .47;
+const foot = new THREE.Mesh(new THREE.CylinderGeometry(.42, .5, .08, 40), candy); foot.position.y = .04;
+for (const m of [top, leg, foot]) { m.castShadow = m.receiveShadow = true; tableG.add(m); }
+scene.add(tableG);
+
+// ---- plate (visual): origin = bottom centre
+const prof = [[0, 0], [1.2, 0], [1.3, .03], [1.42, .11], [1.52, .2], [1.5, .22], [1.4, .14], [1.28, .075], [1.18, .06], [0, .06]].map(([r, y]) => new THREE.Vector2(r, y));
+const plateMesh = new THREE.Mesh(new THREE.LatheGeometry(prof, 72), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .15, clearcoat: 1 }));
+plateMesh.castShadow = plateMesh.receiveShadow = true;
+const rimRing = new THREE.Mesh(new THREE.TorusGeometry(1.5, .045, 12, 96), new THREE.MeshPhysicalMaterial({ color: 0xffc93c, roughness: .3, clearcoat: 1 }));
+rimRing.rotation.x = Math.PI / 2; rimRing.position.y = .205;
+const innerRing = new THREE.Mesh(new THREE.RingGeometry(1.02, 1.08, 72), new THREE.MeshStandardMaterial({ color: 0x46c2ff, roughness: .4 }));
+innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = .062; innerRing.receiveShadow = true;
+const plateG = new THREE.Group(); plateG.add(plateMesh, rimRing, innerRing); scene.add(plateG);
+
+// ---- physics
+const G = 12;
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -G, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.allowSleep = false; world.solver.iterations = 14;
+const mPlate = new CANNON.Material('plate'), mTable = new CANNON.Material('table'), mMochi = new CANNON.Material('mochi');
+world.addContactMaterial(new CANNON.ContactMaterial(mPlate, mTable, { friction: .9, restitution: 0 }));
+world.defaultContactMaterial.friction = .5; world.defaultContactMaterial.restitution = 0;
+const floorBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: mTable });
+floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); world.addBody(floorBody);
+const tableBody = new CANNON.Body({ type: CANNON.Body.STATIC, material: mTable });
+tableBody.addShape(new CANNON.Cylinder(.56, .56, 1.0, 24), new CANNON.Vec3(0, .5, 0));
+world.addBody(tableBody);
+
+// mochi size & softness
+const R = .18;                 // collision size
+const W0 = R * 2.2;            // visual width before squish
+const S_STUCK = .3;            // how flat a stuck mochi stays (ベチャ)
+const MOCHI_M = .4, PLATE_M = 1.6, SURF = .06, EDGE = 1.55;
+const DH = R * 1.9;            // horizontal reach to rest on another mochi
+let plateBody;
+function makePlate() {
+  if (plateBody) world.removeBody(plateBody);
+  plateBody = new CANNON.Body({ mass: PLATE_M, material: mPlate, angularDamping: .6, linearDamping: .05 });
+  plateBody.addShape(new CANNON.Cylinder(1.3, 1.22, .06, 28), new CANNON.Vec3(0, .03, 0));
+  const N = 22;
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2, q = new CANNON.Quaternion();
+    q.setFromEuler(.85, a, 0, 'YXZ');
+    plateBody.addShape(new CANNON.Box(new CANNON.Vec3(2 * Math.PI * 1.4 / N * .55, .09, .03)), new CANNON.Vec3(Math.sin(a) * 1.4, .12, Math.cos(a) * 1.4), q);
+  }
+  plateBody.position.set(0, 1.0, 0);
+  world.addBody(plateBody);
+}
+// ---- 重箱モード: a 3x3 lacquer box; fill 9 cells and the next tier lands on top, 3 tiers to finish
+let MODE = 'plate';
+const CELL = .5, HS = .78, JWT = .06, TH = .36, JWALL = TH - .04, JB_M = .6, JT_M = .3;
+let jbTier = 0, jbCells = [], jbGroups = [], jbDone = false;
+const jbFloor = t => t * TH + .04;
+const cellPos = i => ({ x: (i % 3 - 1) * CELL, z: (Math.floor(i / 3) - 1) * CELL });
+const lacquer = new THREE.MeshPhysicalMaterial({ color: 0x1c1016, roughness: .25, clearcoat: 1, clearcoatRoughness: .1 });
+const vermil = new THREE.MeshPhysicalMaterial({ color: 0xd2232a, roughness: .35, clearcoat: .8 });
+const goldM = new THREE.MeshPhysicalMaterial({ color: 0xf2c14e, metalness: .7, roughness: .3, clearcoat: 1 });
+function tierMesh() {
+  const g = new THREE.Group(), o = HS + JWT;
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); };
+  add(new THREE.BoxGeometry(o * 2, .04, o * 2), lacquer, 0, .02, 0);
+  add(new THREE.BoxGeometry(HS * 2 - .004, .006, HS * 2 - .004), vermil, 0, .0435, 0);
+  // no two faces share a plane (that made the rim flicker): walls stop short of the gold band, which sits a hair proud
+  for (const s of [-1, 1]) {
+    add(new THREE.BoxGeometry(o * 2, JWALL - .03, JWT), lacquer, 0, .04 + (JWALL - .03) / 2, s * (HS + JWT / 2));
+    add(new THREE.BoxGeometry(JWT * .98, JWALL - .034, HS * 2), lacquer, s * (HS + JWT / 2), .04 + (JWALL - .034) / 2, 0);
+    add(new THREE.BoxGeometry(HS * 2 - .01, JWALL - .04, .004), vermil, 0, .045 + (JWALL - .04) / 2, s * (HS - .006));
+    add(new THREE.BoxGeometry(.004, JWALL - .04, HS * 2 - .012), vermil, s * (HS - .006), .045 + (JWALL - .04) / 2, 0);
+    add(new THREE.BoxGeometry(o * 2 + .012, .032, JWT + .012), goldM, 0, TH - .016 - .0015, s * (HS + JWT / 2));
+    add(new THREE.BoxGeometry(JWT + .008, .029, o * 2 - .004), goldM, s * (HS + JWT / 2), TH - .0145 - .0015, 0);
+  }
+  return g;
+}
+function addTierBody(t) {
+  const y0 = t * TH, o = HS + JWT;
+  plateBody.addShape(new CANNON.Box(new CANNON.Vec3(o, .02, o)), new CANNON.Vec3(0, y0 + .02, 0));
+  for (const s of [-1, 1]) {
+    plateBody.addShape(new CANNON.Box(new CANNON.Vec3(o, JWALL / 2, JWT / 2)), new CANNON.Vec3(0, y0 + .04 + JWALL / 2, s * (HS + JWT / 2)));
+    plateBody.addShape(new CANNON.Box(new CANNON.Vec3(JWT / 2, JWALL / 2, HS)), new CANNON.Vec3(s * (HS + JWT / 2), y0 + .04 + JWALL / 2, 0));
+  }
+}
+function disposeTiers() { for (const g of jbGroups) { plateG.remove(g); g.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); } jbGroups = []; }
+function makeJubako() {
+  disposeTiers();
+  jbGroups = []; jbTier = 0; jbDone = false; jbCells = [Array(9).fill(null)];
+  plateBody = new CANNON.Body({ mass: JB_M, material: mPlate, angularDamping: .6, linearDamping: .05 });
+  addTierBody(0);
+  plateBody.position.set(0, 1.0, 0);
+  world.addBody(plateBody);
+  const g = tierMesh(); plateG.add(g); jbGroups.push(g);
+}
+function setModeVisuals() {
+  for (const m of [plateMesh, rimRing, innerRing]) m.visible = MODE === 'plate';
+  const r = MODE === 'plate' ? 1 : .59;     // narrow stand for the box: fill from the middle or it tips
+  top.scale.set(r, 1, r);
+  tableBody.removeShape(tableBody.shapes[0]);
+  tableBody.addShape(new CANNON.Cylinder(.56 * r, .56 * r, 1.0, 24), new CANNON.Vec3(0, .5, 0));
+  if (MODE === 'plate') disposeTiers();
+}
+function nearestEmpty(x, z) {
+  let best = -1, bd = 1e9;
+  jbCells[jbTier].forEach((c, i) => { if (!c) { const p = cellPos(i), d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = i; } } });
+  return best;
+}
+const inBox = (x, z, pad = 0) => Math.abs(x) <= HS + pad && Math.abs(z) <= HS + pad;
+function predictJubako(v) {
+  const fl = jbFloor(jbTier);
+  for (let i = 1; i <= 90; i++) {
+    const t = i / 90 * T_FLIGHT * 1.6;
+    cw.set(SPAWN.x + v.x * t, SPAWN.y + v.y * t - .5 * G * t * t, SPAWN.z + v.z * t);
+    plateBody.pointToLocalFrame(cw, cl);
+    if (!inBox(cl.x, cl.z)) { if (cl.y < fl - .6) return null; continue; }
+    if (cl.y - R * .9 <= fl) { const c = nearestEmpty(cl.x, cl.z); return c < 0 ? null : { t, local: cl.clone(), cell: c }; }
+  }
+  return null;
+}
+function stickJubako(f) {
+  const b = f.body, local = new CANNON.Vec3();
+  plateBody.pointToLocalFrame(b.position, local);
+  const lx = f.land ? f.land.x : local.x, lz = f.land ? f.land.z : local.z;
+  if (!inBox(local.x, local.z, .08) || local.y < jbFloor(jbTier) - .15 || jbDone) return false;
+  const ci = nearestEmpty(lx, lz); if (ci < 0) return false;
+  const cp = cellPos(ci), g = f.g, h = g.userData.h0 * (1 - S_STUCK) * .92;
+  const p = new THREE.Vector3(cp.x, jbFloor(jbTier), cp.z), c = new CANNON.Vec3(p.x, p.y + h / 2, p.z);
+  const shape = new CANNON.Sphere(R * .65);
+  plateBody.addShape(shape, c); plateBody.mass += MOCHI_M; plateBody.updateMassProperties();
+  b.position.vsub(plateBody.position, relV);
+  plateBody.applyImpulse(b.velocity.scale(MOCHI_M * .03 * (1 + jbTier * .2)), relV);     // a light knock; higher tiers rock more
+  const speed = b.velocity.length();
+  world.removeBody(b); scene.remove(g); plateG.add(g); setPivot(g, true); g.position.copy(p);
+  g.userData.qFrom = g.quaternion.clone(); g.userData.qTo = new THREE.Quaternion(); g.userData.qt = 0;
+  g.userData.s = .72; g.userData.sv = 0; g.userData.s0 = S_STUCK;
+  for (const s of stuck) s.g.userData.sv += 5 * Math.exp(-s.g.position.distanceTo(g.position) * 3);
+  const e = { g, p, c, h, rw: DH, rad: R, m: MOCHI_M, shape, k: g.userData.k, n: 1, v: { x: 0, z: 0 }, vy: 0, yaw: 0, tier: jbTier, cell: ci };
+  stuck.push(e); jbCells[jbTier][ci] = e;
+  shake = Math.min(.05, speed * .005); splat(g); sfx('stick', speed);
+  updateHud(); jbHud();
+  if (jbCells[jbTier].every(Boolean)) jbTierDone();
+  return true;
+}
+function jbPatterns(K) {     // K: 9 kinds, row by row
+  const r = {}, same = ids => ids.every(i => K[i] === K[ids[0]]);
+  const corners = [0, 2, 6, 8], edges = [1, 3, 5, 7];
+  if (same([0, 1, 2, 3, 4, 5, 6, 7, 8])) { r.j_isshoku = 1; return r; }
+  if (same(corners)) r.j_yosumi = 1;
+  const rows = [[0, 1, 2], [3, 4, 5], [6, 7, 8]], cols = [[0, 3, 6], [1, 4, 7], [2, 5, 8]];
+  const stripes = L => L.every(same) && K[L[0][0]] !== K[L[1][0]] && K[L[1][0]] !== K[L[2][0]];
+  if (stripes(rows) || stripes(cols)) r.j_shima = 1;
+  if (same([4, ...edges]) && same(corners) && K[4] !== K[0]) r.j_juji = 1;
+  if (same([4, ...corners]) && same(edges) && K[4] !== K[1]) r.j_ichimatsu = 1;
+  if (same([0, 1, 2, 3, 5, 6, 7, 8]) && K[4] !== K[0]) r.j_tono = 1;
+  return r;
+}
+function jbTierDone() {
+  const t = jbTier, K = jbCells[t].map(e => e.k), found = { j_ichidan: 1, ...jbPatterns(K) };
+  for (const k in found) { const key = k + '@' + t; if (!banked[key]) { banked[key] = ROLES[k].p; wantCapture.push({ k, v: t + 1, delta: ROLES[k].p }); burst(ROLES[k].r); } }
+  if (t >= 2) {
+    jbDone = true;
+    banked.j_sandan = ROLES.j_sandan.p; wantCapture.push({ k: 'j_sandan', v: 3, delta: ROLES.j_sandan.p }); burst('UR');
+    const bonus = Math.ceil(timeLeft) * 30; if (bonus > 0) banked.timebonus = bonus;
+    toast('三段重 完成！'); updateHud();
+    if (state === 'play') { state = 'ending'; endTimer = 2.5; for (const o of [ready, next]) if (o) scene.remove(o); ready = next = null; drag = null; dots.visible = marker.visible = false; $('hint').style.opacity = 0; }
+    return;
+  }
+  jbTier = t + 1; jbCells.push(Array(9).fill(null));
+  addTierBody(jbTier); plateBody.mass += JT_M; plateBody.updateMassProperties();
+  const g = tierMesh(); g.position.y = jbTier * TH + 1.4; g.userData.dropTo = jbTier * TH; g.userData.vy = 0; plateG.add(g); jbGroups.push(g);
+  updateHud(); jbHud();
+}
+function jbAnimate(dt) {
+  for (const g of jbGroups) if (g.userData.dropTo !== undefined) {
+    g.userData.vy -= 14 * dt; g.position.y += g.userData.vy * dt;
+    if (g.position.y <= g.userData.dropTo) { g.position.y = g.userData.dropTo; delete g.userData.dropTo; shake = .06; sfx('stick', 6); for (const s of stuck) s.g.userData.sv += 3; }
+  }
+  camLook.y += (1.05 + jbTier * TH * .7 - camLook.y) * Math.min(1, dt * 3);
+}
+function jbHud() { $('kingL').textContent = jbDone ? '三段重 完成！' : (jbTier + 1) + '段目 ' + jbCells[jbTier].filter(Boolean).length + '/9マス'; }
+
+// stuck mochi weigh where they sit (body origin is not the real centre of mass)
+const tmpV = new CANNON.Vec3(), tmpF = new CANNON.Vec3(), tmpT = new CANNON.Vec3();
+world.addEventListener('preStep', () => {
+  for (const s of stuck) {
+    plateBody.quaternion.vmult(s.c, tmpV);
+    tmpF.set(0, -s.m * G, 0); tmpV.cross(tmpF, tmpT);
+    plateBody.torque.vadd(tmpT, plateBody.torque);
+  }
+  if (MODE === 'jubako') for (let t = 0; t <= jbTier; t++) {     // the boxes themselves weigh up high too
+    tmpV.set(0, t * TH + TH / 2, 0); plateBody.quaternion.vmult(tmpV, tmpV);
+    tmpF.set(0, -(t ? JT_M : JB_M) * G, 0); tmpV.cross(tmpF, tmpT); plateBody.torque.vadd(tmpT, plateBody.torque);
+  }
+});
+
+// ---- mochi kinds
+const KINDS = [];            // { geo, mat, scale, h }  h = stuck height
+function newMochi(k) {
+  const K = KINDS[k], g = new THREE.Group(), sq = new THREE.Group(), m = new THREE.Mesh(K.geo, K.mat);
+  m.castShadow = true; m.scale.setScalar(K.scale);
+  sq.add(m); g.add(sq);
+  g.userData = { s: 0, sv: 0, s0: 0, k, sq, mesh: m, h0: K.h0 };
+  return g;
+}
+function setPivot(g, bottom) { g.userData.mesh.position.y = bottom ? g.userData.h0 / 2 : 0; }
+
+// ---- state
+let stuck = [], flying = [], lost = [], state = 'load', timeLeft = 60, endTimer = 0, ready = null, next = null, cooldown = 0, readyT = 1;
+let gameId = 0, rolesNow = {}, best = 0, bestJ = 0, shake = 0, cards = [], cardQueue = [], cardBusy = false, wantCapture = [];
+try { best = +localStorage.getItem('nyankoro-best') || 0; bestJ = +localStorage.getItem('nyankoro-best-j') || 0; } catch (e) {}
+const SPAWN = new THREE.Vector3(0, 1.75, 3.5), NEXTP = new THREE.Vector3(.62, 1.5, 3.95);
+let roundKinds = [0, 1, 2];
+// the 14 mochi come in 7 colours, 2 faces each; a game uses 4 different colours so they are easy to tell apart
+const COLOR_GROUPS = [[0, 11], [1, 10], [2, 7], [3, 13], [4, 6], [5, 8], [9, 12]];
+function pickRound() {
+  const groups = [...COLOR_GROUPS].sort(() => Math.random() - .5).slice(0, 4);
+  roundKinds = groups.map(g => g[Math.floor(Math.random() * g.length)]);
+  if (KINDS.length > BUILTIN) roundKinds[0] = BUILTIN + Math.floor(Math.random() * (KINDS.length - BUILTIN));
+}
+const randKind = () => roundKinds[Math.floor(Math.random() * roundKinds.length)];
+function spawnReady() {
+  if (!next) { next = newMochi(randKind()); scene.add(next); }
+  ready = next; ready.userData.from = ready.position.clone(); readyT = 0;
+  next = newMochi(randKind()); next.position.copy(NEXTP); next.scale.setScalar(.001); next.userData.grow = 0; scene.add(next);
+}
+
+// ---- aiming
+const dots = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(26 * 3), 3)),
+  new THREE.PointsMaterial({ color: 0xffffff, size: .08, depthWrite: false }));
+dots.visible = false; scene.add(dots);
+const marker = new THREE.Mesh(new THREE.RingGeometry(.13, .2, 32), new THREE.MeshBasicMaterial({ color: 0xff2f8a, transparent: true, opacity: .95, depthWrite: false, depthTest: false, side: THREE.DoubleSide, toneMapped: false }));
+marker.visible = false; marker.renderOrder = 5; scene.add(marker);
+let drag = null;
+const T_FLIGHT = 1.1;
+function aimFrom(dx, dy) {
+  const W = innerWidth, H = innerHeight;
+  const pull = THREE.MathUtils.clamp(dy / (H * .28), 0, 1);
+  const tx = THREE.MathUtils.clamp(-dx / (W * .42), -1, 1) * 2.0;
+  return { pull, target: new THREE.Vector3(tx, 1.0 + SURF + R * .8, 2.1 - pull * 4.4) };
+}
+function velocityTo(t) {
+  const T = T_FLIGHT, p = SPAWN;
+  return new THREE.Vector3((t.x - p.x) / T, (t.y - p.y + .5 * G * T * T) / T, (t.z - p.z) / T);
+}
+// bottom height where a mochi comes to rest at plate-local (x,z)
+function supportY(x, z) {
+  let y = SURF + Math.max(0, Math.hypot(x, z) - 1.2) * .55;
+  for (const s of stuck) {
+    const d = Math.hypot(x - s.p.x, z - s.p.z);
+    if (d < s.rw) y = Math.max(y, s.p.y + s.h * Math.sqrt(1 - (d / s.rw) ** 2));
+  }
+  return y;
+}
+const cw = new CANNON.Vec3(), cl = new CANNON.Vec3();
+function predictLanding(v) {
+  if (MODE === 'jubako') return predictJubako(v);
+  for (let i = 1; i <= 90; i++) {
+    const t = i / 90 * T_FLIGHT * 1.6;
+    cw.set(SPAWN.x + v.x * t, SPAWN.y + v.y * t - .5 * G * t * t, SPAWN.z + v.z * t);
+    plateBody.pointToLocalFrame(cw, cl);
+    if (Math.hypot(cl.x, cl.z) > EDGE) { if (cl.y < -1) return null; continue; }
+    if (cl.y - R * .9 <= supportY(cl.x, cl.z)) return { t, local: cl.clone() };
+  }
+  return null;
+}
+function showAim(a) {
+  const v = velocityTo(a.target), land = predictLanding(v), arr = dots.geometry.attributes.position.array;
+  const tEnd = land ? land.t : T_FLIGHT * 1.3;
+  for (let i = 0; i < 26; i++) {
+    const t = i / 25 * tEnd;
+    arr[i * 3] = SPAWN.x + v.x * t; arr[i * 3 + 1] = SPAWN.y + v.y * t - .5 * G * t * t; arr[i * 3 + 2] = SPAWN.z + v.z * t;
+  }
+  dots.geometry.attributes.position.needsUpdate = true;
+  dots.visible = a.pull > .04;
+  marker.visible = a.pull > .04 && !!land;
+  if (land) {
+    const l = land.local, cp = land.cell !== undefined ? cellPos(land.cell) : null;
+    if (cp) plateBody.pointToWorldFrame(new CANNON.Vec3(cp.x, jbFloor(jbTier) + .012, cp.z), cw);
+    else plateBody.pointToWorldFrame(new CANNON.Vec3(l.x, supportY(l.x, l.z) + .012, l.z), cw);
+    marker.position.set(cw.x, cw.y, cw.z);
+    marker.quaternion.copy(plateBody.quaternion); marker.rotateX(-Math.PI / 2);
+  }
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== 'play' || !ready || readyT < 1) return;
+  drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  canvas.setPointerCapture(e.pointerId); audio();
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id || !ready) return;
+  drag.a = aimFrom(e.clientX - drag.x, e.clientY - drag.y);
+  showAim(drag.a);
+  const p = drag.a.pull; ready.userData.s0 = .25 * p;
+  ready.position.set(SPAWN.x - (e.clientX - drag.x) * .0015, SPAWN.y - p * .22, SPAWN.z + p * .3);
+});
+const endDrag = e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const a = drag.a; drag = null; dots.visible = marker.visible = false;
+  if (!ready) return;
+  if (!a || a.pull < .05 || state !== 'play') { ready.position.copy(SPAWN); ready.userData.s0 = 0; return; }
+  throwMochi(a);
+};
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+function throwMochi(a) {
+  const g = ready; ready = null; cooldown = .3;
+  g.position.copy(SPAWN);
+  // in the box mode the knock on landing is handled by hand, so the flying mochi is made very light for the physics
+  const body = new CANNON.Body({ mass: MODE === 'jubako' ? .02 : MOCHI_M, material: mMochi, shape: new CANNON.Sphere(R * .8), angularDamping: 1 });
+  body.position.set(SPAWN.x, SPAWN.y, SPAWN.z);
+  const v = velocityTo(a.target); body.velocity.set(v.x, v.y, v.z);
+  const land = predictLanding(v);
+  const f = { g, body, hit: null, born: performance.now(), spinY: (a.target.x * .8 + (Math.random() - .5)) * Math.PI, land: land && land.local };
+  body.addEventListener('collide', ev => {
+    if (f.hit) return;
+    if (ev.body === plateBody) f.hit = 'plate';
+    else if (ev.body === tableBody || ev.body === floorBody) f.hit = 'miss';
+  });
+  world.addBody(body); flying.push(f);
+  g.userData.sv = -6; g.userData.s0 = -.18;     // stretch as it leaves the hand
+  sfx('throw');
+}
+
+const relV = new CANNON.Vec3();
+function stickMochi(f) {
+  if (MODE === 'jubako') return stickJubako(f);
+  const b = f.body, local = new CANNON.Vec3();
+  plateBody.pointToLocalFrame(b.position, local);
+  if (local.y < SURF || Math.hypot(local.x, local.z) > EDGE) return false;
+  // lands right where the aim marker showed, even if it brushed a neighbour on the way down
+  if (f.land && Math.hypot(f.land.x - local.x, f.land.z - local.z) < .6) { local.x = f.land.x; local.z = f.land.z; }
+  const g = f.g, h = g.userData.h0 * (1 - S_STUCK) * .92;
+  const p = new THREE.Vector3(local.x, supportY(local.x, local.z), local.z);
+  const c = new CANNON.Vec3(p.x, p.y + h / 2, p.z);
+  const shape = new CANNON.Sphere(R * .65);
+  plateBody.addShape(shape, c);
+  plateBody.mass += MOCHI_M; plateBody.updateMassProperties();
+  b.position.vsub(plateBody.position, relV);
+  plateBody.applyImpulse(b.velocity.scale(MOCHI_M * .12), relV);
+  const speed = b.velocity.length();
+  world.removeBody(b);
+  scene.remove(g); plateG.add(g); setPivot(g, true);
+  g.position.copy(p);
+  // spin settles to face front
+  const yaw = (Math.random() - .5) * .5;
+  g.userData.qFrom = g.quaternion.clone(); g.userData.qTo = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0)); g.userData.qt = 0;
+  g.userData.s = .72; g.userData.sv = 0; g.userData.s0 = S_STUCK;     // ベチャ
+  for (const s of stuck) {
+    const d = s.g.position.distanceTo(g.position);
+    s.g.userData.sv += 5 * Math.exp(-d * 3);
+  }
+  stuck.push({ g, p, c, h, rw: DH, rad: R, m: MOCHI_M, shape, k: g.userData.k, n: 1, v: { x: 0, z: 0 }, vy: 0, yaw });
+  shake = Math.min(.05, speed * .005);
+  splat(g);
+  sfx('stick', speed);
+  checkRoles(true);
+  checkKing();
+  return true;
+}
+function freezeLost(f) {
+  world.removeBody(f.body); f.t = 2.2;
+  f.g.userData.s = .75; f.g.userData.sv = 0; f.g.userData.s0 = .4;
+  f.g.quaternion.identity(); setPivot(f.g, true); f.g.position.y -= R * .8;
+  sfx('stick', 3);
+}
+
+// ---- roles (20 kinds, 5 rarities)
+const RAR = ['N', 'R', 'SR', 'SSR', 'UR'];
+const ROLES = {
+  nakayoshi: { n: 'なかよし', p: 50, r: 'N', c: '同じもち2こだけでくっつける' },
+  gake: { n: 'がけっぷちにゃんころ', p: 150, r: 'N', c: 'ひとりだけお皿のふちぎりぎり' },
+  chibi: { n: 'ちびタワー', p: 200, r: 'N', c: '3段つみ', f: 'tower' },
+  oka: { n: 'にゃんころ丘', p: 250, r: 'N', c: '3・1の二段', f: 'yama' },
+  gyouretsu: { n: 'にゃんころ行列', p: 400, r: 'R', c: 'まっすぐ5こ', f: 'line' },
+  dango: { n: 'にゃんころ三色だんご', p: 500, r: 'R', c: 'ちがうもち3こを縦につむ' },
+  shitennou: { n: 'にゃんころ四天王', p: 500, r: 'R', c: '4種類が1こずつくっつく' },
+  donut: { n: 'にゃんころドーナツ', p: 600, r: 'R', c: '真ん中をあけて輪にする' },
+  hanabi: { n: 'にゃんころ花火', p: 800, r: 'SR', c: '真ん中1こ＋まわり6こ', f: 'hanabi' },
+  gisshiri: { n: 'にゃんころぎっしり', p: 800, r: 'SR', c: '1段目だけに22こ（上にのせない）' },
+  oyabun: { n: 'おやぶんの肩車', p: 800, r: 'SR', c: 'キングのてっぺんに1こだけのせる' },
+  tower: { n: 'にゃんころタワー', p: 900, r: 'SR', c: '4段つみ', f: 'tower' },
+  yama: { n: 'にゃんころ山', p: 1000, r: 'SR', c: '6・3・1の三段', f: 'yama' },
+  cross: { n: 'にゃんころクロス', p: 1000, r: 'SR', c: '十字に9こ' },
+  daihanabi: { n: 'にゃんころ大花火', p: 1500, r: 'SSR', c: '真ん中1こ＋まわり8こ', f: 'hanabi' },
+  daimyo: { n: 'にゃんころ大名行列', p: 1500, r: 'SSR', c: 'まっすぐ8こ', f: 'line' },
+  sokkuri: { n: 'そっくり行列', p: 1500, r: 'SSR', c: '同じもちをまっすぐ5こ' },
+  king: { n: '大にゃんころキング', p: 2000, r: 'SSR', c: '同じもち10こくっつける' },
+  tenku: { n: 'にゃんころ天空タワー', p: 3000, r: 'UR', c: '6段つみ', f: 'tower' },
+  pyramid: { n: 'ピラミッドオブにゃんころパワー', p: 3000, r: 'UR', c: '10・5・2・1の四段', f: 'yama' },
+  j_ichidan: { n: '一段できあがり', p: 100, r: 'N', c: '重箱：1段の9マスを埋める' },
+  j_yosumi: { n: 'よすみにゃんころ', p: 400, r: 'R', c: '重箱：四すみを同じもちに' },
+  j_shima: { n: 'しましま重', p: 600, r: 'R', c: '重箱：列ごとに同じもち、となりの列はちがうもち' },
+  j_juji: { n: '重箱十字', p: 900, r: 'SR', c: '重箱：まん中の縦横5こを同じもち、四すみは別のもち' },
+  j_ichimatsu: { n: 'にゃんころ市松', p: 1000, r: 'SR', c: '重箱：2種類を市松もように' },
+  j_tono: { n: 'とのさまと家来', p: 1500, r: 'SSR', c: '重箱：まん中1こ、まわり8こを同じもち' },
+  j_isshoku: { n: 'まるごと一色', p: 1500, r: 'SSR', c: '重箱：9こ全部同じもち' },
+  j_sandan: { n: '三段重 完成', p: 3000, r: 'UR', c: '重箱：3段ぜんぶ埋める（のこり時間もボーナス）' }
+};
+// A role only counts when a group of mochi, standing apart from the others, makes exactly that shape.
+function analyze() {
+  if (MODE === 'jubako') return {};
+  const H = W0 * .8 * (1 - S_STUCK) * .92, TOUCH = R * 2.9;
+  const pts = stuck.filter(s => !s.king).map(s => ({ x: s.p.x, z: s.p.z, y: s.c.y, k: s.k, L: Math.max(0, Math.round((s.p.y - SURF) / H)) }));
+  const roles = {}, TAU = Math.PI * 2;
+  const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z), d3 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z, a.y - b.y);
+  const touch = (a, b) => d3(a, b) < TOUCH;
+  const maxGap = (c, list) => {
+    const an = list.map(p => Math.atan2(p.z - c.z, p.x - c.x)).sort((a, b) => a - b);
+    let g = 0; for (let i = 0; i < an.length; i++) g = Math.max(g, ((an[(i + 1) % an.length] - an[i]) + TAU) % TAU || TAU);
+    return g;
+  };
+  const centroid = l => ({ x: l.reduce((a, p) => a + p.x, 0) / l.length, z: l.reduce((a, p) => a + p.z, 0) / l.length });
+  const nearest = (l, g) => l.reduce((a, p) => d2(p, g) < d2(a, g) ? p : a);
+  // groups of mochi touching each other
+  const seen = new Set(), groups = [];
+  for (const a of pts) {
+    if (seen.has(a)) continue;
+    const g = [a], q = [a]; seen.add(a);
+    while (q.length) { const x = q.pop(); for (const b of pts) if (!seen.has(b) && touch(x, b)) { seen.add(b); g.push(b); q.push(b); } }
+    groups.push(g);
+  }
+  const up = (k, v = 1) => { if (!roles[k] || v > roles[k]) roles[k] = v; };
+  for (const C of groups) {
+    const n = C.length, base = C.filter(p => p.L === 0), flat = base.length === n;
+    const cnt = [0, 0, 0, 0, 0]; for (const p of C) cnt[Math.min(p.L, 4)]++;
+    if (n === 1 && Math.hypot(C[0].x, C[0].z) > 1.3) up('gake');
+    if (n === 2 && flat && C[0].k === C[1].k) up('nakayoshi');
+    // a straight column, one per level, each right above the one below
+    if (n >= 3) {
+      const col = [...C].sort((a, b) => a.L - b.L);
+      if (col.every((p, i) => p.L === i && (i === 0 || d2(p, col[i - 1]) < R))) {
+        if (n >= 6) up('tenku', n); else if (n >= 4) up('tower', n); else { up('chibi', 3); if (new Set(col.map(p => p.k)).size === 3) up('dango'); }
+      }
+    }
+    if (n === 4 && flat && new Set(C.map(p => p.k)).size === 4 && C.every(a => C.every(b => a === b || touch(a, b)))) up('shitennou');
+    if (n === 4 && cnt[0] === 3 && cnt[1] === 1) { const t = C.find(p => p.L === 1); if (d2(t, centroid(base)) < R) up('oka'); }
+    if (n === 10 && cnt[0] === 6 && cnt[1] === 3 && cnt[2] === 1) {
+      const g = centroid(base), t = C.find(p => p.L === 2);
+      if (d2(t, g) < R * 1.2 && d2(centroid(C.filter(p => p.L === 1)), g) < R) up('yama');
+    }
+    if (n === 18 && cnt[0] === 10 && cnt[1] === 5 && cnt[2] === 2 && cnt[3] === 1) {
+      const g = centroid(base), t = C.find(p => p.L === 3);
+      if (d2(t, g) < R * 1.5 && d2(centroid(C.filter(p => p.L === 2)), g) < R * 1.2) up('pyramid');
+    }
+    if (flat && (n === 7 || n === 9)) {          // 花火: centre + an even ring
+      const c = nearest(C, centroid(C)), ring = C.filter(p => p !== c);
+      if (ring.every(p => d2(p, c) > R * 1.7 && d2(p, c) < R * 2.9)) {
+        const g = maxGap(c, ring);
+        if (n === 7 && g < 80 * Math.PI / 180) up('hanabi');
+        if (n === 9 && g < 55 * Math.PI / 180) up('daihanabi');
+      }
+    }
+    if (flat && n === 9) {                       // クロス: centre + 4 arms of 2
+      const c = nearest(C, centroid(C)), o = C.filter(p => p !== c);
+      const near = o.filter(p => d2(p, c) > R * 1.7 && d2(p, c) < R * 2.9), far = o.filter(p => d2(p, c) > R * 3.4 && d2(p, c) < R * 5.6);
+      const ang = p => Math.atan2(p.z - c.z, p.x - c.x), diff = (a, b) => Math.abs(((a - b) % TAU + TAU * 1.5) % TAU - Math.PI);
+      if (near.length === 4 && far.length === 4 && maxGap(c, near) < 115 * Math.PI / 180 && far.every(f => near.some(m => diff(ang(f), ang(m)) < .3))) up('cross');
+    }
+    if (flat && n >= 7) {                        // ドーナツ: an even ring with nothing in the middle
+      const g = centroid(C), ds = C.map(p => d2(p, g)), m = ds.reduce((a, b) => a + b, 0) / n;
+      if (m > R * 1.8 && ds.every(d => Math.abs(d - m) < m * .2) && maxGap(g, C) < TAU / n * 1.7) up('donut');
+    }
+    if (flat && n >= 5) {                        // 行列: everyone on one straight line
+      let a = C[0], b = C[1], far = 0;
+      for (const p of C) for (const q of C) if (d2(p, q) > far) { far = d2(p, q); a = p; b = q; }
+      const ux = (b.x - a.x) / far, uz = (b.z - a.z) / far;
+      if (C.every(p => Math.abs((p.x - a.x) * uz - (p.z - a.z) * ux) < R * .45)) {
+        const t = C.map(p => (p.x - a.x) * ux + (p.z - a.z) * uz).sort((x, y) => x - y);
+        if (t.every((v, i) => i === 0 || v - t[i - 1] < R * 2.9)) {
+          if (n >= 8) up('daimyo', n); else up('gyouretsu', n);
+          if (C.every(p => p.k === C[0].k)) up('sokkuri', n);
+        }
+      }
+    }
+  }
+  if (pts.length >= 22 && pts.every(p => p.L === 0)) roles.gisshiri = 1;
+  for (const kg of stuck.filter(s => s.king)) {
+    const on = stuck.filter(s => !s.king && s.p.y > kg.p.y + kg.h * .45 && Math.hypot(s.p.x - kg.p.x, s.p.z - kg.p.z) < kg.rw);
+    if (on.length === 1 && Math.hypot(on[0].p.x - kg.p.x, on[0].p.z - kg.p.z) < kg.rw * .4) roles.oyabun = 1;
+  }
+  return roles;
+}
+function roleScore(k, v) {
+  if (k === 'tower') return 900 + (v - 4) * 300;
+  if (k === 'gyouretsu') return 400 + (v - 5) * 80;
+  return ROLES[k].p;
+}
+function roleName(k, v) { if (k.startsWith('j_')) return ROLES[k].n + (k === 'j_sandan' ? '' : '（' + v + '段目）'); return ROLES[k].n + (/tower|tenku/.test(k) ? ' ' + v + '段' : /gyouretsu|daimyo|sokkuri/.test(k) ? ' ' + v + 'こ' : ''); }
+// a role's points are banked the moment it forms (as a card); a bigger version of the same family pays the difference
+let banked = {};
+const mochiCount = () => stuck.reduce((a, s) => a + s.n, 0);
+function total() { let s = mochiCount() * 20; for (const k in banked) s += banked[k]; return s; }
+function checkRoles(announce) {
+  const r = analyze();
+  if (announce) for (const k in r) {
+    const pts = roleScore(k, r[k]), f = ROLES[k].f || k;
+    if (pts > (banked[f] || 0)) { wantCapture.push({ k, v: r[k], delta: pts - (banked[f] || 0) }); banked[f] = pts; burst(ROLES[k].r); }
+  }
+  rolesNow = r; updateHud();
+}
+function updateHud() { $('score').textContent = total(); $('count').textContent = 'もち ' + mochiCount() + 'こ'; }
+
+// ---- 大にゃんころキング: 10 mochi stuck together merge into one 5x king
+const KING_N = 10, KING_X = 2.5, KING_PTS = 2000;
+let merging = [], kings = 0;
+// clusters of the SAME mochi touching each other
+function checkKing() {
+  if (MODE === 'jubako') return false;
+  const list = stuck.filter(s => !s.king), seen = new Set();
+  let most = 0;
+  for (const a of list) {
+    if (seen.has(a)) continue;
+    const cl = [a], q = [a]; seen.add(a);
+    while (q.length) {
+      const x = q.pop();
+      for (const b of list) if (!seen.has(b) && b.k === x.k && Math.hypot(x.c.x - b.c.x, x.c.y - b.c.y, x.c.z - b.c.z) < R * 2.9) { seen.add(b); cl.push(b); q.push(b); }
+    }
+    if (cl.length >= KING_N) { makeKing(cl); kingHud(0); return true; }
+    most = Math.max(most, cl.length);
+  }
+  kingHud(most);
+  return false;
+}
+function kingHud(most) {
+  if (MODE === 'jubako') { jbHud(); return; }
+  const el = $('kingL');
+  el.textContent = most >= 2 ? 'おなじもち ' + most + 'こ（キングまで あと' + (KING_N - most) + '）' : 'おなじもち10こでキング';
+}
+function makeKing(cl) {
+  let cx = 0, cz = 0; const tally = {};
+  for (const s of cl) { cx += s.p.x; cz += s.p.z; tally[s.k] = (tally[s.k] || 0) + 1; plateBody.removeShape(s.shape); }
+  cx /= cl.length; cz /= cl.length;
+  const last = cl[cl.length - 1].k, k = +Object.keys(tally).reduce((a, b) => tally[b] > tally[a] || (tally[b] === tally[a] && +b === last) ? b : a);
+  stuck = stuck.filter(s => !cl.includes(s));
+  for (const s of cl) merging.push({ g: s.g, from: s.g.position.clone(), t: 0 });
+  const g = newMochi(k), K = KINDS[k];
+  g.userData.kingT = 0; g.userData.kingX = 1;
+  plateG.add(g); setPivot(g, true);
+  const p = new THREE.Vector3(cx, baseY(cx, cz), cz);
+  g.position.copy(p);
+  g.rotation.y = 0; g.visible = false;
+  const h = K.h0 * KING_X * (1 - .2) * .95, w = W0 * KING_X;
+  const c = new CANNON.Vec3(p.x, p.y + h * .5, p.z), shape = new CANNON.Sphere(Math.min(h, w) * .5);
+  plateBody.addShape(shape, c); plateBody.updateMassProperties();
+  stuck.push({ g, p, c, h, rw: w * .55 + R * .5, rad: w * .44, m: MOCHI_M * cl.length, shape, k, n: cl.length, king: true, v: { x: 0, z: 0 }, vy: 0, yaw: 0 });
+  kings++;
+  const gid = gameId;
+  setTimeout(() => {
+    if (gid !== gameId || (state !== 'play' && state !== 'ending')) return;
+    banked['king' + kings] = KING_PTS; wantCapture.push({ k: 'king', v: kings, delta: KING_PTS }); updateHud();
+  }, 900);
+}
+
+// ---- settling: mochi slip into gaps, lean, creep downhill when the plate tilts, and can slide off
+const baseY = (x, z) => SURF + Math.max(0, Math.hypot(x, z) - 1.2) * .55;
+function supEx(s, x, z) {            // what holds s up: the plate, or mochi whose centre is lower than its own
+  let y = baseY(x, z);
+  for (const o of stuck) {
+    if (o === s || o.p.y + o.h * .4 >= s.p.y || (s.king && !o.king)) continue;   // only mochi really below can hold it up
+    const d = Math.hypot(x - o.p.x, z - o.p.z);
+    if (d < o.rw) y = Math.max(y, o.p.y + o.h * Math.sqrt(1 - (d / o.rw) ** 2));
+  }
+  return y;
+}
+const DOWN = new CANNON.Vec3(0, -1, 0), gLoc = new CANNON.Vec3(), qInv = new CANNON.Quaternion();
+const leanQ = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), nrm = new THREE.Vector3(), UP3 = new THREE.Vector3(0, 1, 0);
+let settleClock = 0, settleMoved = false;
+function settle(dt) {
+  plateBody.quaternion.conjugate(qInv); qInv.vmult(DOWN, gLoc);      // gravity seen from the plate
+  const e = R * .3; let moved = false;
+  for (const s of [...stuck]) {
+    const u = s.g.userData;
+    if (s.king && u.kingT < 1) continue;
+    const x = s.p.x, z = s.p.z;
+    const gx = (supEx(s, x + e, z) - supEx(s, x - e, z)) / (2 * e), gz = (supEx(s, x, z + e) - supEx(s, x, z - e)) / (2 * e);
+    const tf = s.king ? 1.2 : 2.2, dx = -gx + gLoc.x * tf, dz = -gz + gLoc.z * tf, mag = Math.hypot(dx, dz), th = s.king ? .5 : .36;
+    if (mag > th) { const a = (mag - th) * 5 * dt / mag; s.v.x += dx * a; s.v.z += dz * a; }
+    const damp = Math.exp((mag > th ? -6.5 : -14) * dt); s.v.x *= damp; s.v.z *= damp;     // sticky: stops quickly once nothing pushes it
+    const sp = Math.hypot(s.v.x, s.v.z); if (sp > .9) { s.v.x *= .9 / sp; s.v.z *= .9 / sp; }
+    s.p.x += s.v.x * dt; s.p.z += s.v.z * dt;
+    const ty = supEx(s, s.p.x, s.p.z);
+    if (s.p.y > ty + .002) {
+      s.vy -= 9 * dt; s.p.y = Math.max(ty, s.p.y + s.vy * dt);
+      if (s.p.y === ty) { u.sv += Math.min(4, -s.vy * 3); s.vy = 0; }
+      moved = true;
+    } else { s.p.y = ty; s.vy = 0; }
+    if (sp > .03) moved = true;
+    nrm.set(-gx * .7, 1, -gz * .7).normalize();
+    leanQ.setFromUnitVectors(UP3, nrm).multiply(yawQ.setFromAxisAngle(UP3, s.yaw));
+    if (!(u.qFrom && u.qt < 1)) s.g.quaternion.slerp(leanQ, 1 - Math.exp(-6 * dt));
+    if (Math.hypot(s.p.x, s.p.z) > EDGE + .05) dropOff(s);
+  }
+  for (let i = 0; i < stuck.length; i++) for (let j = i + 1; j < stuck.length; j++) {   // squeeze apart on the same level
+    const a = stuck[i], b = stuck[j];
+    if (Math.abs(a.p.y - b.p.y) > Math.min(a.h, b.h) * .6) continue;
+    const dx = b.p.x - a.p.x, dz = b.p.z - a.p.z, d = Math.hypot(dx, dz) || 1e-4, min = a.rad + b.rad;
+    if (d < min) {
+      const push = (min - d) * Math.min(1, 8 * dt), wa = b.m / (a.m + b.m), wb = a.m / (a.m + b.m);
+      a.p.x -= dx / d * push * wa; a.p.z -= dz / d * push * wa; b.p.x += dx / d * push * wb; b.p.z += dz / d * push * wb;
+      if (push > .002) moved = true;
+    }
+  }
+  // sticky: mochi close to each other pull together a little and slide along together
+  for (let i = 0; i < stuck.length; i++) for (let j = i + 1; j < stuck.length; j++) {
+    const a = stuck[i], b = stuck[j];
+    if (Math.abs(a.p.y - b.p.y) > Math.min(a.h, b.h) * .6) continue;
+    const dx = b.p.x - a.p.x, dz = b.p.z - a.p.z, d = Math.hypot(dx, dz) || 1e-4, min = a.rad + b.rad;
+    if (d >= min + R * .6) continue;
+    if (d > min) {
+      const pull = (d - min) * Math.min(1, 1.6 * dt), wa = b.m / (a.m + b.m), wb = a.m / (a.m + b.m);
+      a.p.x += dx / d * pull * wa; a.p.z += dz / d * pull * wa; b.p.x -= dx / d * pull * wb; b.p.z -= dz / d * pull * wb;
+    }
+    const k = Math.min(1, 1.2 * dt), vx = (a.v.x * a.m + b.v.x * b.m) / (a.m + b.m), vz = (a.v.z * a.m + b.v.z * b.m) / (a.m + b.m);
+    a.v.x += (vx - a.v.x) * k; a.v.z += (vz - a.v.z) * k; b.v.x += (vx - b.v.x) * k; b.v.z += (vz - b.v.z) * k;
+  }
+  for (const s of stuck) {
+    s.g.position.copy(s.p);
+    s.c.set(s.p.x, s.p.y + s.h * .5, s.p.z);
+    const i = plateBody.shapes.indexOf(s.shape); if (i >= 0) plateBody.shapeOffsets[i].copy(s.c);
+  }
+  plateBody.updateBoundingRadius(); plateBody.aabbNeedsUpdate = true;
+  if (moved) settleMoved = true;
+  settleClock += dt;
+  if (settleClock > .3) { settleClock = 0; if (settleMoved) { settleMoved = false; checkRoles(true); checkKing(); } }
+}
+function dropOff(s) {
+  plateBody.removeShape(s.shape); plateBody.mass -= s.m; plateBody.updateMassProperties();
+  stuck = stuck.filter(o => o !== s);
+  const g = s.g; scene.attach(g); setPivot(g, false);
+  g.position.y += s.h * .5;
+  const body = new CANNON.Body({ mass: MOCHI_M, shape: new CANNON.Sphere(R * .8) });
+  body.position.set(g.position.x, g.position.y, g.position.z);
+  const out = new THREE.Vector3(g.position.x - plateG.position.x, 0, g.position.z - plateG.position.z).normalize();
+  body.velocity.set(out.x * 1.2, .4, out.z * 1.2);
+  const f = { g, body, hit: null, born: performance.now(), drop: true, spinY: 0 };
+  body.addEventListener('collide', ev => { if (!f.hit && (ev.body === tableBody || ev.body === floorBody)) f.hit = 'miss'; });
+  world.addBody(body); flying.push(f); updateHud();
+}
+let toastT = 0;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1300); }
+
+// ---- role cards: the moment the role forms, photographed from a close camera
+const cardCam = new THREE.PerspectiveCamera(36, 1, .1, 60);
+const shotC = document.createElement('canvas'); shotC.width = 300; shotC.height = 400;
+function snap(dst) {
+  const W = canvas.width, H = canvas.height, cw2 = Math.min(W, H * .75), ch2 = cw2 * 4 / 3;
+  const f = ch2 / H;
+  cardCam.aspect = W / H;
+  cardCam.fov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(36) / 2) / f) * 180 / Math.PI;
+  cardCam.updateProjectionMatrix();
+  const c = new THREE.Vector3(); plateG.getWorldPosition(c);
+  let topY = 0; for (const s of stuck) topY = Math.max(topY, s.p.y + s.h);
+  cardCam.position.set(c.x + .3, c.y + 1.5 + topY * .6, c.z + 3.0 + topY * .9);
+  cardCam.lookAt(c.x, c.y + .2 + topY * .45, c.z);
+  const hidden = [dots, marker, ready, next].filter(o => o && o.visible);
+  hidden.forEach(o => o.visible = false);
+  renderer.render(scene, cardCam);
+  dst.getContext('2d').drawImage(canvas, (W - cw2) / 2, (H - ch2) / 2, cw2, ch2, 0, 0, dst.width, dst.height);
+  hidden.forEach(o => o.visible = true);
+}
+function capture(item) {
+  snap(shotC);
+  const card = { key: item.k, name: roleName(item.k, item.v), pts: item.delta, img: shotC.toDataURL('image/jpeg', .85), rar: ROLES[item.k].r };
+  if (!zukan.includes(item.k)) { zukan.push(item.k); card.isNew = true; try { localStorage.setItem('nyankoro-zukan', JSON.stringify(zukan)); } catch (e) {} }
+  cards.push(card); cardQueue.push(card); runCards();
+}
+function cardHTML(c) {
+  const d = document.createElement('div'); d.className = 'rcard ' + c.rar;
+  const st = document.createElement('div'); st.className = 'st'; st.textContent = c.rar + (c.isNew ? ' NEW' : '');
+  const img = new Image(); img.src = c.img; img.alt = c.name;
+  const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = c.name;
+  const pt = document.createElement('div'); pt.className = 'pt'; pt.textContent = '+' + c.pts;
+  d.append(st, img, nm, pt); return d;
+}
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function runCards() {
+  if (cardBusy || !cardQueue.length) return;
+  cardBusy = true;
+  const c = cardQueue.shift(), el = cardHTML(c), host = $('cardPop'), ri = RAR.indexOf(c.rar), gid = gameId;
+  host.replaceChildren(el); fanfare(ri);
+  if (ri >= 3) { shake = .06; flash(ri); }
+  const done = () => {
+    if (gid !== gameId) return;          // a new game started while this card was showing
+    host.replaceChildren();
+    const t = new Image(); t.src = c.img; t.alt = c.name; $('tray').append(t);
+    cardBusy = false; runCards();
+  };
+  const hold = [1000, 1250, 1500, 1900, 2600][ri];
+  if (reduce) { setTimeout(done, hold); return; }
+  el.animate(ri >= 4 ? [{ transform: 'scale(.1) rotateY(720deg)', opacity: 0 }, { transform: 'scale(1.25) rotateY(0deg)', opacity: 1, offset: .6 }, { transform: 'scale(1) rotate(-2deg)', opacity: 1 }]
+    : [{ transform: 'scale(.2) rotate(-25deg)', opacity: 0 }, { transform: 'scale(1.08) rotate(4deg)', opacity: 1, offset: .55 }, { transform: 'scale(1) rotate(-2deg)', opacity: 1 }], { duration: ri >= 4 ? 900 : 450, easing: 'ease-out' });
+  setTimeout(() => {
+    const tr = $('tray').getBoundingClientRect(), r = el.getBoundingClientRect();
+    const dx = tr.right - 20 - (r.left + r.width / 2), dy = tr.top + 20 - (r.top + r.height / 2);
+    el.animate([{ transform: 'rotate(-2deg)' }, { transform: `translate(${dx}px,${dy}px) scale(.16) rotate(10deg)`, opacity: .6 }], { duration: 420, easing: 'ease-in', fill: 'forwards' }).onfinish = done;
+  }, hold);
+}
+
+// ---- effects
+const sparks = [];
+const sparkGeo = new THREE.SphereGeometry(.04, 6, 4), dropGeo = new THREE.SphereGeometry(.03, 6, 4);
+function burst(kind) {
+  const c = new THREE.Vector3(); plateG.getWorldPosition(c); c.y += .9;
+  const cols = [0xff5fa2, 0xffe066, 0xffffff, 0x46c2ff, 0x8ee6cf, 0xb48cff];
+  const n = { N: 30, R: 50, SR: 80, SSR: 120, UR: 180 }[kind] || 110;
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, toneMapped: false }));
+    m.position.copy(c);
+    const th = Math.random() * Math.PI * 2, ph = Math.acos(Math.random() * 2 - 1), sp = 2 + Math.random() * 2.5;
+    m.userData.v = new THREE.Vector3(Math.sin(ph) * Math.cos(th) * sp, Math.abs(Math.cos(ph)) * sp + 1.5, Math.sin(ph) * Math.sin(th) * sp);
+    m.userData.life = 1.2; m.userData.gr = 4; scene.add(m); sparks.push(m);
+  }
+}
+function splat(g) {
+  const c = new THREE.Vector3(); g.getWorldPosition(c); c.y += .03;
+  for (let i = 0; i < 10; i++) {
+    const m = new THREE.Mesh(dropGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, toneMapped: false }));
+    m.position.copy(c); const a = i / 10 * Math.PI * 2, s = 1.1 + Math.random() * .6;
+    m.userData.v = new THREE.Vector3(Math.cos(a) * s, 1.2 + Math.random(), Math.sin(a) * s);
+    m.userData.life = .45; m.userData.gr = 9; scene.add(m); sparks.push(m);
+  }
+}
+
+// ---- sound
+let ac = null;
+let master = null, musicGain = null, noiseBuf = null, bgmOn = true, bgmTimer = null, bgmStep = 0, bgmNext = 0;
+try { bgmOn = localStorage.getItem('nyankoro-bgm') !== 'off'; } catch (e) {}
+function audio() {
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = ac.createGain(); master.gain.value = .9; master.connect(ac.destination);
+    musicGain = ac.createGain(); musicGain.gain.value = bgmOn ? .32 : 0; musicGain.connect(master);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * .3, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (ac.state === 'suspended') ac.resume();
+}
+function sfx(type, k = 1) {
+  if (!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(master);
+  if (type === 'throw') { o.type = 'sine'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(900, t + .14); g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.start(t); o.stop(t + .17); }
+  if (type === 'stick') { o.type = 'sine'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(70, t + .2); g.gain.setValueAtTime(Math.min(.4, .12 + k * .03), t); g.gain.exponentialRampToValueAtTime(.001, t + .25); o.start(t); o.stop(t + .26); }
+  if (type === 'role') { o.type = 'triangle'; [660, 880, 1320, 1760].forEach((f, i) => o.frequency.setValueAtTime(f, t + i * .08)); g.gain.setValueAtTime(.15, t); g.gain.exponentialRampToValueAtTime(.001, t + .5); o.start(t); o.stop(t + .52); }
+  if (type === 'crash') { o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(40, t + .6); g.gain.setValueAtTime(.22, t); g.gain.exponentialRampToValueAtTime(.001, t + .7); o.start(t); o.stop(t + .72); }
+}
+
+// ---- BGM: bouncy marimba pop, made on the fly (I–vi–IV–V in C, 128 bpm; 150 bpm in the last 10 s)
+const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+function mallet(t, m, vol, out) {
+  const g = ac.createGain(); g.connect(out || musicGain);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .004); g.gain.exponentialRampToValueAtTime(.0008, t + .38);
+  for (const [mul, v] of [[1, 1], [3.95, .18]]) {
+    const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.value = mf(m) * mul; og.gain.value = v;
+    if (mul > 1) og.gain.exponentialRampToValueAtTime(.001, t + .06);
+    o.connect(og); og.connect(g); o.start(t); o.stop(t + .4);
+  }
+}
+function bass(t, m) {
+  const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+  o.type = 'triangle'; o.frequency.value = mf(m - 24); f.type = 'lowpass'; f.frequency.value = 700;
+  g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.001, t + .24);
+  o.connect(f); f.connect(g); g.connect(musicGain); o.start(t); o.stop(t + .25);
+}
+function kick(t) {
+  const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+  g.gain.setValueAtTime(.7, t); g.gain.exponentialRampToValueAtTime(.001, t + .15); o.connect(g); g.connect(musicGain); o.start(t); o.stop(t + .16);
+}
+function noise(t, type, freq, vol, len) {
+  const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  n.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + len);
+  n.connect(f); f.connect(g); g.connect(musicGain); n.start(t); n.stop(t + len + .01);
+}
+const _ = 0;
+const MEL = [
+  [72,_,76,_,79,_,76,_,77,_,76,_,74,_,72,_], [69,_,72,_,76,_,72,_,74,_,72,_,71,_,69,_],
+  [65,_,69,_,72,_,74,_,76,_,74,_,72,_,69,_], [67,_,71,_,74,_,79,_,77,_,74,_,71,_,74,_],
+  [79,_,_,76,_,79,_,_,81,_,79,_,76,_,74,_], [76,_,_,72,_,76,_,_,77,_,76,_,72,_,69,_],
+  [77,_,_,76,_,74,_,72,_,74,_,76,_,77,_,79], [79,_,77,_,76,_,74,_,71,_,74,_,79,_,_,_]];
+const CH = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]];
+function playStep(i, t, hurry) {
+  const bar = i >> 4, st = i & 15, ch = CH[bar % 4], m = MEL[bar][st];
+  if (m) { mallet(t, m, .42); if (hurry) mallet(t, m + 12, .14); }
+  if (st === 0 || st === 8 || (bar >= 4 && st === 11)) kick(t);
+  if (st === 4 || st === 12) { noise(t, 'bandpass', 1800, .32, .09); for (const n of ch) mallet(t, n + 12, .07); }
+  if (st % 4 === 2 || (hurry && st % 2 === 1)) noise(t, 'highpass', 7000, .1, .03);
+  if (st === 0 || st === 6 || st === 8 || st === 14) bass(t, ch[0] + (st === 8 ? 12 : 0));
+}
+function bgmTick() {
+  if (bgmNext < ac.currentTime - .05) bgmNext = ac.currentTime + .05;     // back from the background: don't play the missed notes all at once
+  const hurry = state === 'play' && timeLeft <= 10, step = 60 / (hurry ? 150 : 128) / 4;
+  while (bgmNext < ac.currentTime + .12) { playStep(bgmStep, bgmNext, hurry); bgmNext += step; bgmStep = (bgmStep + 1) % 128; }
+}
+function bgmStart() { if (!ac) return; bgmStop(); bgmStep = 0; bgmNext = ac.currentTime + .08; bgmTimer = setInterval(bgmTick, 25); }
+function bgmStop() { clearInterval(bgmTimer); bgmTimer = null; }
+function fanfare(ri) {
+  if (!ac) return;
+  const t = ac.currentTime + .02, seq = [[72, 76, 79], [72, 76, 79, 84], [72, 76, 79, 84, 88], [67, 72, 76, 79, 84, 88, 91], [60, 64, 67, 72, 76, 79, 84, 88, 91, 96]][ri];
+  seq.forEach((m, i) => mallet(t + i * (ri >= 3 ? .07 : .09), m, .35, master));
+  if (ri >= 3) { const e = t + seq.length * .07; for (const m of [72, 76, 79, 84]) mallet(e, m, .22, master); }
+  if (ri >= 4) { const e = t + seq.length * .07 + .25; for (const m of [77, 81, 84, 89]) mallet(e, m, .22, master); for (const m of [79, 83, 86, 91]) mallet(e + .25, m, .25, master); }
+}
+function endJingle(fell) {
+  if (!ac) return;
+  const t = ac.currentTime + .05, seq = fell ? [67, 63, 60, 55] : [72, 74, 76, 79, 84];
+  seq.forEach((m, i) => mallet(t + i * .13, m, .35, master));
+}
+function flash(ri) {
+  const f = $('flash');
+  f.style.background = ri >= 4 ? 'radial-gradient(circle,#fff 0,#ffe066 30%,#ff5fa2 60%,transparent 80%)' : 'radial-gradient(circle,#fff 0,#ffe066 40%,transparent 75%)';
+  if (!reduce) f.animate([{ opacity: 0 }, { opacity: .85 }, { opacity: 0 }], { duration: ri >= 4 ? 900 : 500 });
+}
+function setMute() { const b = $('mute'); b.classList.toggle('off', !bgmOn); b.setAttribute('aria-pressed', String(!bgmOn)); if (musicGain) musicGain.gain.value = bgmOn ? .32 : 0; }
+document.addEventListener('visibilitychange', () => {
+  if (!ac) return;
+  if (document.hidden) ac.suspend(); else if (state !== 'load') ac.resume();
+});
+$('mute').onclick = () => { audio(); bgmOn = !bgmOn; try { localStorage.setItem('nyankoro-bgm', bgmOn ? 'on' : 'off'); } catch (e) {} setMute(); };
+setMute();
+
+// ---- 図鑑
+let zukan = [];
+try { zukan = JSON.parse(localStorage.getItem('nyankoro-zukan') || '[]'); } catch (e) { zukan = []; }
+// ---- 役の見本: little diagrams (top view for flat shapes, side view for stacks)
+const MC = { w: '#f6eee8', k: '#3a3540', b: '#8fcff5', y: '#f6c94a', p: '#c7a3ff', m: '#ff9cc2', c: '#f6eee8' };
+function mochiSVG(cx, cy, r, col, side) {
+  const fill = MC[col], ry = side ? r * .62 : r;
+  let t = `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="${fill}" stroke="#3b1f4a" stroke-width="2"/>`;
+  if (col === 'c') t += `<path d="M${cx - r * .9} ${cy - ry * .3} q${r * .4} ${-ry * .9} ${r * .9} ${-ry * .55}" fill="none" stroke="#ff9f43" stroke-width="${r * .45}" stroke-linecap="round"/>`;
+  const e = col === 'k' ? '#fff' : '#3b1f4a';
+  t += `<circle cx="${cx - r * .32}" cy="${cy - ry * .05}" r="1.6" fill="${e}"/><circle cx="${cx + r * .32}" cy="${cy - ry * .05}" r="1.6" fill="${e}"/>`;
+  return t;
+}
+const plateBg = '<ellipse cx="60" cy="60" rx="56" ry="56" fill="#fff" stroke="#ffc93c" stroke-width="5"/><ellipse cx="60" cy="60" rx="38" ry="38" fill="none" stroke="#46c2ff" stroke-width="1.5"/>';
+function topView(pts) { return `<svg viewBox="0 0 120 120" role="img">${plateBg}${pts.map(([x, z, c]) => mochiSVG(60 + x * 20, 60 + z * 20, 9.5, c)).join('')}</svg>`; }
+function sideView(rows) {   // rows from bottom: [[colours...], ...]
+  let t = '<svg viewBox="0 0 120 120" role="img"><rect x="10" y="100" width="100" height="6" rx="3" fill="#ffc93c" stroke="#3b1f4a" stroke-width="2"/>';
+  rows.forEach((row, L) => row.forEach((c, i) => { t += mochiSVG(60 + (i - (row.length - 1) / 2) * 20, 91 - L * 13, 10, c, true); }));
+  return t + '</svg>';
+}
+const ring = (n, rad, c, cc) => [[0, 0, cc || c], ...Array.from({ length: n }, (_, i) => [Math.cos(i / n * Math.PI * 2) * rad, Math.sin(i / n * Math.PI * 2) * rad, Array.isArray(c) ? c[i % c.length] : c])];
+const EXAMPLES = [
+  ['hanabi', topView(ring(6, 1.05, ['m', 'y', 'b', 'p', 'w', 'k'], 'y')), 'まん中1こ、まわりに6こ'],
+  ['cross', topView([[0, 0, 'b'], ...[[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].map(([x, z]) => [x, z, 'b'])]), 'うでを2こずつ4方向に'],
+  ['donut', topView(Array.from({ length: 8 }, (_, i) => [Math.cos(i / 8 * Math.PI * 2) * 1.3, Math.sin(i / 8 * Math.PI * 2) * 1.3, ['p', 'm'][i % 2]])), 'まん中はあけておく'],
+  ['gyouretsu', topView([-2, -1, 0, 1, 2].map((x, i) => [x, 0, ['y', 'k', 'm', 'b', 'w'][i]])), 'まっすぐ5こ。8こで大名行列'],
+  ['sokkuri', topView([-2, -1, 0, 1, 2].map(x => [x, 0, 'k'])), '同じもちだけで5こ'],
+  ['shitennou', topView([[-.5, -.5, 'k'], [.5, -.5, 'y'], [-.5, .5, 'b'], [.5, .5, 'm']]), '4色を1こずつ固めて'],
+  ['dango', sideView([['m'], ['w'], ['y']]), 'ちがう色を3段'],
+  ['tower', sideView([['b'], ['b'], ['k'], ['y']]), '真上に4段。6段で天空タワー'],
+  ['yama', sideView([['w', 'm', 'y'], ['b', 'p'], ['k']]), '下から6・3・1こ（横から見た図）'],
+  ['pyramid', sideView([['w', 'm', 'y', 'b'], ['p', 'k', 'y'], ['m', 'w'], ['b']]), '下から10・5・2・1こ'],
+  ['king', topView([[0, 0, 'p'], [1, 0, 'p'], [-1, 0, 'p'], [.5, .87, 'p'], [-.5, .87, 'p'], [.5, -.87, 'p'], [-.5, -.87, 'p'], [1.5, .87, 'p'], [-1.5, -.87, 'p'], [0, 1.74, 'p']]), '同じもちを10こくっつける'],
+  ['nakayoshi', topView([[-.5, 0, 'y'], [.5, 0, 'y']]), '同じもち2こだけ']
+];
+function gridView(K) {
+  let t = '<svg viewBox="0 0 120 120" role="img"><rect x="8" y="8" width="104" height="104" rx="6" fill="#1c1016"/><rect x="14" y="14" width="92" height="92" fill="#d2232a"/>';
+  K.forEach((c, i) => { t += mochiSVG(30 + (i % 3) * 30, 30 + Math.floor(i / 3) * 30, 12, c); });
+  return t + '</svg>';
+}
+EXAMPLES.push(
+  ['j_ichimatsu', gridView(['m', 'y', 'm', 'y', 'm', 'y', 'm', 'y', 'm']), '2種類を交互に'],
+  ['j_juji', gridView(['k', 'b', 'k', 'b', 'b', 'b', 'k', 'b', 'k']), 'まん中の縦横5こと四すみ'],
+  ['j_shima', gridView(['y', 'y', 'y', 'p', 'p', 'p', 'y', 'y', 'y']), '列ごとにそろえる'],
+  ['j_tono', gridView(['w', 'w', 'w', 'w', 'k', 'w', 'w', 'w', 'w']), 'まん中だけちがうもち']);
+function renderExamples() {
+  $('exList').innerHTML = EXAMPLES.map(([k, svg, tip]) => `<div>${svg}<b>${ROLES[k].n}</b><span>${ROLES[k].r}・${tip}</span></div>`).join('');
+}
+function renderZukan() {
+  const keys = Object.keys(ROLES), host = $('zkList');
+  $('zkSum').textContent = '役カード図鑑 ' + keys.filter(k => zukan.includes(k)).length + '/' + keys.length;
+  host.replaceChildren();
+  for (const k of keys) {
+    const b = document.createElement('b'), sp = document.createElement('span'), i = document.createElement('i');
+    b.textContent = ROLES[k].r; sp.textContent = (zukan.includes(k) ? '' : '未発見 ') + ROLES[k].n; i.textContent = ROLES[k].c; sp.append(i);
+    if (!zukan.includes(k)) { b.className = sp.className = 'no'; }
+    host.append(b, sp);
+  }
+}
+
+// ---- game flow
+function clearAll() {
+  for (const s of stuck) plateG.remove(s.g);
+  for (const f of flying) { scene.remove(f.g); world.removeBody(f.body); }
+  for (const f of lost) scene.remove(f.g);
+  if (ready) scene.remove(ready); if (next) scene.remove(next);
+  stuck = []; flying = []; lost = []; ready = next = null; rolesNow = {}; banked = {}; kings = 0;
+  for (const m of merging) plateG.remove(m.g); merging = [];
+  cards = []; cardQueue = []; wantCapture = []; $('tray').replaceChildren(); $('cardPop').replaceChildren(); cardBusy = false;
+  if (MODE === 'jubako') { if (plateBody) world.removeBody(plateBody); makeJubako(); } else makePlate();
+  checkRoles(false);
+}
+function startGame(mode) {
+  if (mode === 'plate' || mode === 'jubako') MODE = mode;
+  camLook.y = 1.05; setModeVisuals();
+  if (MODE === 'jubako') { camBase.set(0, 4.7, 5.6); NEXTP.set(.62, 1.95, 3.7); } else { camBase.set(0, 3.7, 6.3); NEXTP.set(.62, 1.5, 3.95); }
+  resize();
+  gameId++; audio(); clearAll(); bgmStart();
+  state = 'play'; timeLeft = 60; endTimer = 0;
+  $('title').hidden = $('result').hidden = true; $('hint').style.opacity = 1;
+  pickRound(); kingHud(0);
+  spawnReady(); ready.position.copy(SPAWN); readyT = 1;
+}
+function upVec() { const up = new CANNON.Vec3(); plateBody.quaternion.vmult(new CANNON.Vec3(0, 1, 0), up); return up; }
+const plateFallen = () => upVec().y < .8 || plateBody.position.y < .7;
+const tiltAmount = () => THREE.MathUtils.clamp(Math.acos(Math.min(1, upVec().y)) / Math.acos(.8), 0, 1);
+const finalC = document.createElement('canvas'); finalC.width = 600; finalC.height = 800;
+let lastResult = null;
+function finish(fell) {
+  state = 'result'; bgmStop(); endJingle(fell);
+  snap(finalC); renderer.render(scene, camera);
+  const sc = fell ? 0 : total();
+  lastResult = { fell, sc, n: mochiCount(), cards: cards.slice(), mode: MODE };
+  if (MODE === 'plate' && sc > best) { best = sc; try { localStorage.setItem('nyankoro-best', best); } catch (e) {} }
+  if (MODE === 'jubako' && sc > bestJ) { bestJ = sc; try { localStorage.setItem('nyankoro-best-j', bestJ); } catch (e) {} }
+  $('rTitle').textContent = fell ? 'がっしゃーん！' : MODE === 'jubako' ? (jbDone ? '三段重 完成！' : '詰めおわり！') : '盛りつけ完了！';
+  $('rScore').textContent = sc;
+  const rows = fell ? [[MODE === 'jubako' ? '重箱ごと倒れた' : '皿ごと倒れた', '0']] : [['もち ' + mochiCount() + 'こ × 20', mochiCount() * 20], ...cards.map(c => [c.name, '+' + c.pts]), ...(banked.timebonus ? [['のこり時間ボーナス', '+' + banked.timebonus]] : [])];
+  if (!fell && !cards.length) rows.push(['役なし', '0']);
+  $('rList').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  $('rCards').replaceChildren(...cards.map(cardHTML));
+  $('rCards').hidden = !cards.length;
+  $('rBest').textContent = 'ベスト ' + (MODE === 'jubako' ? bestJ : best);
+  $('result').hidden = false;
+}
+// ---- share: a picture of the result + text for X / LINE / copy
+const SHARE_TAG = '#にゃんころ盛り';
+const shareUrl = () => /^https?:$/.test(location.protocol) && !/claude|usercontent/.test(location.hostname) ? location.href.split('#')[0] : '';
+function shareText(r) {
+  const top = [...r.cards].sort((a, b) => RAR.indexOf(b.rar) - RAR.indexOf(a.rar)).slice(0, 3).map(c => c.name + '（' + c.rar + '）');
+  const md = r.mode === 'jubako' ? '（重箱）' : '';
+  return (r.fell ? 'にゃんころ盛り' + md + 'で' + (r.mode === 'jubako' ? '重箱' : '皿') + 'ごと倒しちゃった…' : 'にゃんころ盛り' + md + 'で ' + r.sc + '点！ もち' + r.n + 'こ') + (top.length ? '\n役：' + top.join('、') : '') + '\n' + SHARE_TAG;
+}
+const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+async function makeShareImage(r) {
+  try { await document.fonts.ready; } catch (e) {}
+  const c = document.createElement('canvas'); c.width = 1080; c.height = 1350;
+  const x = c.getContext('2d'), F = '"Dela Gothic One","Zen Maru Gothic",sans-serif';
+  // sunburst
+  x.fillStyle = '#ffb3d9'; x.fillRect(0, 0, 1080, 1350);
+  x.save(); x.translate(540, 420); x.fillStyle = '#ff9ccc';
+  for (let i = 0; i < 16; i++) { x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, 1500, i / 16 * Math.PI * 2, (i + .5) / 16 * Math.PI * 2); x.fill(); }
+  const g = x.createRadialGradient(0, 0, 0, 0, 0, 420); g.addColorStop(0, 'rgba(255,242,160,1)'); g.addColorStop(1, 'rgba(255,242,160,0)'); x.fillStyle = g; x.fillRect(-540, -420, 1080, 900);
+  x.restore();
+  const outline = (t, px, py, size, fill, w = 14) => { x.font = size + 'px ' + F; x.textAlign = 'center'; x.lineJoin = 'round'; x.lineWidth = w; x.strokeStyle = '#3b1f4a'; x.strokeText(t, px, py); x.fillStyle = fill; x.fillText(t, px, py); };
+  const logo = await loadImg('logo.png');
+  if (logo) x.drawImage(logo, 120, 10, 840, 280); else outline('にゃんころ盛り', 540, 130, 92, '#fff');
+  // the plate at the end
+  x.fillStyle = '#3b1f4a'; x.beginPath(); x.roundRect(343, 290, 394, 480, 30); x.fill();
+  x.save(); x.beginPath(); x.roundRect(353, 300, 374, 460, 22); x.clip(); x.drawImage(finalC, 0, 20, 600, 738, 353, 300, 374, 460); x.restore();
+  outline(r.fell ? 'がっしゃーん！' : r.sc + '点', 540, 915, r.fell ? 96 : 130, r.fell ? '#fff' : '#ffe066', 18);
+  x.font = '900 40px "Zen Maru Gothic",sans-serif'; x.fillStyle = '#3b1f4a'; x.textAlign = 'center';
+  x.fillText(r.fell ? (r.mode === 'jubako' ? '重箱ごと倒れた' : '皿ごと倒れた') : 'もち ' + r.n + 'こ ・ 役カード ' + r.cards.length + 'まい', 540, 975);
+  // best cards
+  const top = [...r.cards].sort((a, b) => RAR.indexOf(b.rar) - RAR.indexOf(a.rar)).slice(0, 4);
+  const cw = 210, gap = 26, x0 = 540 - (top.length * cw + (top.length - 1) * gap) / 2, col = { N: '#e4e0e8', R: '#46c2ff', SR: '#ffc93c', SSR: '#ff9ccc', UR: '#5a1f7a' };
+  for (let i = 0; i < top.length; i++) {
+    const cd = top[i], cx = x0 + i * (cw + gap), cy = 1008, im = await loadImg(cd.img);
+    x.fillStyle = '#3b1f4a'; x.beginPath(); x.roundRect(cx + 6, cy + 6, cw, 300, 18); x.fill();
+    x.fillStyle = col[cd.rar]; x.beginPath(); x.roundRect(cx, cy, cw, 300, 18); x.fill();
+    x.lineWidth = 5; x.strokeStyle = '#3b1f4a'; x.stroke();
+    if (im) { x.save(); x.beginPath(); x.roundRect(cx + 12, cy + 12, cw - 24, 200, 10); x.clip(); x.drawImage(im, 0, 60, 300, 286, cx + 12, cy + 12, cw - 24, 200); x.restore(); }
+    x.fillStyle = cd.rar === 'UR' ? '#fff' : '#3b1f4a'; x.font = '900 30px "Zen Maru Gothic",sans-serif'; x.fillText(cd.rar, cx + cw / 2, cy + 248);
+    let nm = cd.name; x.font = '900 20px "Zen Maru Gothic",sans-serif'; while (x.measureText(nm).width > cw - 16 && nm.length > 2) nm = nm.slice(0, -2) + '…';
+    x.fillText(nm, cx + cw / 2, cy + 282);
+  }
+  x.font = '900 30px "Zen Maru Gothic",sans-serif'; x.fillStyle = '#3b1f4a'; x.fillText(SHARE_TAG, 540, 1342);
+  return c;
+}
+let shareBlob = null;
+$('shareBtn').onclick = async () => {
+  if (!lastResult) return;
+  $('share').hidden = false; $('shareMsg').textContent = '画像をつくっています…'; $('shareImg').removeAttribute('src');
+  const text = shareText(lastResult), url = shareUrl(), full = text + (url ? '\n' + url : '');
+  $('shareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + (url ? '&url=' + encodeURIComponent(url) : '');
+  $('shareLine').href = 'https://social-plugins.line.me/lineit/share?text=' + encodeURIComponent(full) + (url ? '&url=' + encodeURIComponent(url) : '');
+  $('shareCopy').onclick = async () => { try { await navigator.clipboard.writeText(full); $('shareMsg').textContent = 'コピーしました'; } catch (e) { $('shareMsg').textContent = 'コピーできませんでした：' + full; } };
+  const c = await makeShareImage(lastResult);
+  $('shareImg').src = c.toDataURL('image/png'); $('shareMsg').textContent = '';
+  shareBlob = await new Promise(res => c.toBlob(res, 'image/png'));
+  const file = shareBlob && new File([shareBlob], 'nyankoro.png', { type: 'image/png' });
+  const can = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
+  $('shareNative').hidden = !can;
+  $('shareNative').onclick = async () => { try { await navigator.share({ files: [file], text: full }); } catch (e) { if (e.name !== 'AbortError') $('shareMsg').textContent = 'この画面では画像ごとのシェアが使えません。長押しで保存してください'; } };
+};
+$('shareClose').onclick = () => { $('share').hidden = true; };
+$('start').onclick = () => startGame('plate');
+$('startJ').onclick = () => startGame('jubako');
+$('again').onclick = () => startGame(MODE);
+const bestLine = () => (best || bestJ) ? 'ベスト　お皿 ' + best + '　重箱 ' + bestJ : '';
+$('toTitle').onclick = () => { $('result').hidden = true; renderZukan(); renderMyList(); $('best').textContent = bestLine(); $('title').hidden = false; };
+
+// ---- resize
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const dist = camBase.distanceTo(camLook);
+  camera.fov = Math.max(50, Math.min(78, 2 * Math.atan(1.95 / dist / camera.aspect) * 180 / Math.PI));
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+// ---- オープニング (on the ground): mochi hop in like slimes, pile up, burst, roles pop out one by one, then the Pyramid of Nyankoro Power
+let opT = 0, opMochis = [], opDust = [], opShow = [], opPhase = '', opDone = false, opStage = -1;
+const OP = { crash: 5.2, dark: 6.5, reveal: 7.9, logo: 11.5 };
+const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const raysMat = new THREE.ShaderMaterial({
+  uniforms: { t: { value: 0 }, rays: { value: 0 }, glow: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `varying vec2 vUv;uniform float t,rays,glow;
+  vec3 hue(float h){return clamp(abs(mod(h*6.+vec3(0.,4.,2.),6.)-3.)-1.,0.,1.);}
+  void main(){vec2 p=vUv-.5;float r=length(p)*2.;float a=atan(p.y,p.x);
+  float ray=pow(abs(sin(a*9.+t*1.3)),6.)*.8+pow(abs(sin(a*5.-t*.9)),10.)*.6;
+  float fall=smoothstep(1.,.05,r);
+  vec3 col=mix(vec3(1.,.9,.5),hue(a/6.2832+t*.15),.55)*ray*fall*rays;
+  col+=vec3(1.,.97,.9)*glow*(smoothstep(.75,0.,r)*.9+smoothstep(.25,0.,r));
+  gl_FragColor=vec4(col,1.);}`
+});
+const raysMesh = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), raysMat); raysMesh.visible = false; raysMesh.renderOrder = -1; scene.add(raysMesh);
+const halo = new THREE.Mesh(new THREE.TorusGeometry(.17, .022, 10, 48), new THREE.MeshBasicMaterial({ color: 0xffe066, toneMapped: false })); halo.visible = false; scene.add(halo);
+const HL = .2, CEN = new THREE.Vector3(0, 0, 0);
+function ringPts(n, r, y, off = 0) { return Array.from({ length: n }, (_, i) => ({ x: Math.cos(i / n * 6.2832 + off) * r, z: Math.sin(i / n * 6.2832 + off) * r, y })); }
+const PYR = [...ringPts(7, .42, 0), ...ringPts(3, .16, 0, .5), ...ringPts(5, .27, HL, .3), ...ringPts(2, .11, HL * 2, .8), { x: 0, z: 0, y: HL * 3 }];
+const PILE = [...ringPts(10, .95, 0, .1), ...ringPts(8, .62, 0, .3), ...ringPts(4, .25, 0), ...ringPts(9, .78, HL, .2), ...ringPts(7, .48, HL, .5), ...ringPts(3, .18, HL),
+  ...ringPts(7, .6, HL * 2, .1), ...ringPts(5, .34, HL * 2, .7), ...ringPts(5, .42, HL * 3, .4), { x: 0, z: 0, y: HL * 3 }, ...ringPts(3, .2, HL * 4, .2), { x: 0, z: 0, y: HL * 5 }];
+// one role, picked at random, rises out of the dust
+const lineP = (n, d) => Array.from({ length: n }, (_, i) => ({ x: (i - (n - 1) / 2) * d, z: 0, y: 0 }));
+const FORM = {
+  hanabi: () => [{ x: 0, z: 0, y: 0 }, ...ringPts(6, .42, 0)],
+  daihanabi: () => [{ x: 0, z: 0, y: 0 }, ...ringPts(8, .44, 0)],
+  tower: () => [0, 1, 2, 3].map(i => ({ x: 0, z: 0, y: i * HL })),
+  tenku: () => [0, 1, 2, 3, 4, 5].map(i => ({ x: 0, z: 0, y: i * HL })),
+  chibi: () => [0, 1, 2].map(i => ({ x: 0, z: 0, y: i * HL })),
+  dango: () => [0, 1, 2].map(i => ({ x: 0, z: 0, y: i * HL })),
+  oka: () => [...ringPts(3, .22, 0, .5), { x: 0, z: 0, y: HL }],
+  yama: () => [...ringPts(6, .4, 0), ...ringPts(3, .2, HL, .5), { x: 0, z: 0, y: HL * 2 }],
+  pyramid: () => PYR,
+  king: () => [{ x: 0, z: 0, y: 0, big: 2.5 }],
+  cross: () => [{ x: 0, z: 0, y: 0 }, ...[[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].map(([x, z]) => ({ x: x * .4, z: z * .4, y: 0 }))],
+  donut: () => ringPts(8, .55, 0),
+  gyouretsu: () => lineP(5, .42),
+  daimyo: () => lineP(8, .4),
+  sokkuri: () => lineP(5, .42),
+  shitennou: () => [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]].map(([x, z]) => ({ x, z, y: 0 })),
+  nakayoshi: () => [{ x: -.2, z: 0, y: 0 }, { x: .2, z: 0, y: 0 }]
+};
+let opRole = 'pyramid', opTop = .8;
+const opRand = () => Math.floor(Math.random() * BUILTIN);
+function opMochi(k, p, extra = {}) { const g = newMochi(k); setPivot(g, true); g.position.set(p.x, p.y, p.z); scene.add(g); return { g, ...p, ...extra }; }
+function startOpening() {
+  audio(); gameId++;
+  $('title').hidden = $('result').hidden = true; $('splash').hidden = true; $('hint').style.opacity = 0;
+  document.body.classList.add('opening');
+  $('op').hidden = false; $('opBanner').className = ''; $('opLogo').className = ''; $('opTap').className = '';
+  state = 'opening'; opT = 0; opPhase = ''; opDone = false; opStage = -1;
+  const keys = Object.keys(FORM); opRole = keys[Math.floor(Math.random() * keys.length)];
+  tableG.visible = plateG.visible = false;
+  // the pile, built bottom-up by mochi hopping in from all around
+  const N = PILE.length;
+  opMochis = PILE.map((p, i) => {
+    const hops = 3 + Math.floor(Math.random() * 3), arrive = 1.2 + i / N * 3.6, a = Math.random() * 6.2832;
+    const from = new THREE.Vector3(p.x + Math.cos(a) * hops * .95, 0, p.z + Math.sin(a) * hops * .95);
+    const o = opMochi(opRand(), { x: from.x, y: 0, z: from.z }, { tx: p.x, ty: p.y, tz: p.z, from, hops, t0: arrive - hops * .42, hop: -1, landed: false });
+    o.g.visible = false; return o;
+  });
+}
+function clearShow() { for (const o of opShow) scene.remove(o.g); opShow = []; }
+function endOpening() {
+  if (state !== 'opening') return;
+  for (const o of opMochis) scene.remove(o.g);
+  for (const d of opDust) scene.remove(d);
+  clearShow(); opMochis = []; opDust = []; raysMesh.visible = halo.visible = false;
+  setLights(1); burstMat.uniforms.dim.value = 0; burstMat.uniforms.rainbow.value = 0; renderer.toneMappingExposure = 1;
+  tableG.visible = plateG.visible = true;
+  $('op').hidden = true; bgmStop(); document.body.classList.remove('opening');
+  try { localStorage.setItem('nyankoro-op', '1'); } catch (e) {}
+  camLook.set(0, 1.05, -.1);
+  state = 'title'; $('title').hidden = false; renderZukan(); $('best').textContent = bestLine();
+}
+function setLights(k) { hemi.intensity = 1.3 * k; key.intensity = 2.0 * k; scene.environmentIntensity = .55 * k; }
+function dustPuff(n, y = .3, spread = 1.2) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dustTex, color: 0xfff3f8, transparent: true, opacity: 0, depthWrite: false }));
+    const a = Math.random() * 6.2832, r = Math.random() * spread;
+    s.position.set(Math.cos(a) * r, y + Math.random() * .5, Math.sin(a) * r); s.scale.setScalar(.6 + Math.random() * .7);
+    s.userData = { v: new THREE.Vector3(Math.cos(a) * (.7 + Math.random()), .3 + Math.random() * .7, Math.sin(a) * (.7 + Math.random())), life: 1.8 + Math.random(), age: 0 };
+    scene.add(s); opDust.push(s);
+  }
+}
+function fwAt(pos, n, big) {
+  const cols = [0xff5fa2, 0xffe066, 0xffffff, 0x46c2ff, 0x8ee6cf, 0xb48cff, 0xff9f43];
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, toneMapped: false }));
+    m.position.copy(pos); if (big) m.scale.setScalar(1.6);
+    const th = Math.random() * 6.2832, ph = Math.acos(Math.random() * 2 - 1), sp = (big ? 3.5 : 2.2) + Math.random() * 1.5;
+    m.userData.v = new THREE.Vector3(Math.sin(ph) * Math.cos(th) * sp, Math.cos(ph) * sp + .8, Math.sin(ph) * Math.sin(th) * sp);
+    m.userData.life = 1.3; m.userData.gr = 3; scene.add(m); sparks.push(m);
+  }
+}
+function opSound(type, i = 0) {
+  if (!ac) return;
+  const t = ac.currentTime + .01;
+  if (type === 'hop') mallet(t, 72 + [0, 2, 4, 7, 9][i % 5], .05, master);
+  if (type === 'land') mallet(t, 60 + [0, 4, 7, 12, 16, 19, 24][i % 7] + Math.floor(i / 14) * 2, .14, master);
+  if (type === 'roll') noise(t, 'bandpass', 2200, .14, .06);
+  if (type === 'crash') { sfx('crash'); kick(t); kick(t + .08); for (let k = 0; k < 4; k++) { const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); n.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = 900 - k * 150; g.gain.setValueAtTime(.35, t + k * .12); g.gain.exponentialRampToValueAtTime(.001, t + k * .12 + .4); n.connect(f); f.connect(g); g.connect(master); n.start(t + k * .12); } }
+  if (type === 'beat') { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(40, t + .18); g.gain.setValueAtTime(.6, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); o.connect(g); g.connect(master); o.start(t); o.stop(t + .26); }
+  if (type === 'reveal') { fanfare(RAR.indexOf(ROLES[opRole].r)); for (const m of [48, 55, 60, 64, 67, 72]) mallet(t, m, .2, master); setTimeout(() => { if (state === 'opening') bgmStart(); }, 1500); }
+}
+function banner(k, big) {
+  const b = $('opBanner'), R = ROLES[k];
+  b.querySelector('.ur').textContent = R.r;
+  const nm = R.n === 'ピラミッドオブにゃんころパワー' ? ['ピラミッドオブ', 'にゃんころパワー'] : [R.n, ''];
+  b.querySelector('.nm1').textContent = nm[0]; b.querySelector('.nm2').textContent = nm[1];
+  b.querySelector('.pts').textContent = '+' + R.p;
+  b.className = ''; void b.offsetWidth; b.className = 'on r' + R.r + (big ? ' big' : '');
+}
+const lerp3 = (a, b, u) => new THREE.Vector3(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u);
+function opTick(dt) {
+  opT += dt; const T = opT;
+  // 1) hop in like slimes and pile up
+  for (const o of opMochis) {
+    if (o.landed || o.fall) continue;
+    const e = (T - o.t0) / .42;
+    if (e < 0) continue;
+    o.g.visible = true;
+    const k = Math.min(Math.floor(e), o.hops - 1), u = Math.min(1, e - k);
+    if (k !== o.hop) { o.hop = k; if (k > 0) { o.g.userData.s = .5; o.g.userData.sv = 0; if (Math.random() < .3) opSound('hop', k); } }
+    const target = new THREE.Vector3(o.tx, 0, o.tz);
+    const a = lerp3(o.from, target, k / o.hops), b = lerp3(o.from, target, (k + 1) / o.hops);
+    const last = k === o.hops - 1, endY = last ? o.ty : 0;
+    const p = lerp3(a, b, u); p.y = (last ? endY * u : 0) + Math.sin(u * Math.PI) * (.45 + (last ? o.ty * .6 : 0));
+    o.g.position.copy(p); o.g.rotation.set(0, Math.atan2(-(b.x - a.x), -(b.z - a.z)) * 0 + Math.sin(u * 6.28) * .2, 0);
+    o.g.userData.s0 = u < .15 || u > .85 ? .25 : -.15;
+    if (e >= o.hops) {
+      o.landed = true; o.g.position.set(o.tx, o.ty, o.tz); o.g.rotation.set(0, (Math.random() - .5) * .4, 0);
+      o.g.userData.s = .72; o.g.userData.sv = 0; o.g.userData.s0 = S_STUCK; opSound('land', opMochis.indexOf(o));
+      for (const q of opMochis) if (q.landed) q.g.userData.sv += .6;
+    }
+  }
+  if (T > 3.9 && T < OP.crash) {
+    if (Math.floor(T * 14) !== Math.floor((T - dt) * 14)) { opSound('roll'); for (const q of opMochis) if (q.landed) q.g.userData.sv += (T - 3.9) * .8; }
+  }
+  // 2) the burst
+  if (T >= OP.crash && opPhase === '') {
+    opPhase = 'crash'; shake = .22; flash(3); opSound('crash'); dustPuff(45, .2, 1.3);
+    for (const o of opMochis) {
+      const out = new THREE.Vector3(o.g.position.x, 0, o.g.position.z); if (out.lengthSq() < .01) out.set(Math.random() - .5, 0, Math.random() - .5); out.normalize();
+      o.fall = true; o.g.visible = true;
+      o.v = new THREE.Vector3(out.x * (2.2 + Math.random() * 2.5), 3 + Math.random() * 3.5 + o.g.position.y * 3, out.z * (2.2 + Math.random() * 2.5)); o.w = (Math.random() - .5) * 16;
+    }
+  }
+  for (const o of opMochis) if (o.fall && !o.down) {
+    o.v.y -= 12 * dt; o.g.position.addScaledVector(o.v, dt); o.g.rotation.x += o.w * dt; o.g.rotation.z += o.w * .6 * dt;
+    if (o.g.position.y <= 0 && o.v.y < 0) { o.g.position.y = 0; o.down = true; o.g.rotation.set(0, Math.random() * 6, 0); o.g.userData.s = .75; o.g.userData.s0 = .4; }
+  }
+  for (let i = opDust.length - 1; i >= 0; i--) {
+    const d = opDust[i], u = d.userData; u.age += dt; d.position.addScaledVector(u.v, dt); u.v.multiplyScalar(Math.exp(-1.5 * dt));
+    d.scale.multiplyScalar(1 + dt * .9); d.material.opacity = Math.min(.85, u.age * 4) * Math.max(0, 1 - u.age / u.life) * (opPhase === 'dark' ? .35 : 1);
+    d.material.color.setScalar(Math.min(1, hemi.intensity / 1.3 + .08));
+    if (u.age > u.life) { scene.remove(d); d.material.dispose(); opDust.splice(i, 1); }
+  }
+  if (T >= OP.dark && opPhase === 'crash') {
+    opPhase = 'dark'; $('opBanner').className = '';
+    // the role gathers in the dark
+    const one = opRand(), kinds = [opRand(), opRand(), opRand(), opRand(), opRand(), opRand()];
+    FORM[opRole]().forEach((p, i) => {
+      const k = opRole === 'sokkuri' || opRole === 'nakayoshi' || opRole === 'king' ? one : opRole === 'dango' || opRole === 'shitennou' ? kinds[i] : opRand();
+      const o = opMochi(k, p, { pyr: true, landed: true }); o.g.userData.s0 = .12;
+      if (p.big) { o.g.userData.mesh.scale.multiplyScalar(p.big); o.g.userData.mesh.position.y *= p.big; o.g.userData.h0 *= p.big; }
+      opMochis.push(o);
+    });
+    opTop = Math.max(...opMochis.filter(o => o.pyr).map(o => o.y + o.g.userData.h0 * (1 - .12)));
+  }
+  // 4) darkness and a silhouette against a glow
+  if (T >= OP.dark && T < OP.reveal) {
+    const u = Math.min(1, (T - OP.dark) / .6);
+    setLights(1 - u * .93); burstMat.uniforms.dim.value = u * .92; renderer.toneMappingExposure = 1 - u * .85;
+    raysMesh.visible = true; raysMat.uniforms.glow.value = u * 1.1; raysMat.uniforms.rays.value = 0;
+    if (Math.floor((T - OP.dark) / .55) !== Math.floor((T - dt - OP.dark) / .55)) opSound('beat');
+  }
+  // 5) the finale
+  if (T >= OP.reveal && opPhase !== 'reveal') {
+    opPhase = 'reveal'; flash(4); shake = .1; opSound('reveal'); banner(opRole, ROLES[opRole].r === 'UR'); halo.visible = true;
+    for (const o of opMochis) if (o.pyr) o.g.userData.sv += 2.5;
+  }
+  if (opPhase === 'reveal') {
+    const u = Math.min(1, (T - OP.reveal) / .35);
+    setLights(.07 + u * 1.25); burstMat.uniforms.dim.value = .92 * (1 - u); burstMat.uniforms.rainbow.value = u; renderer.toneMappingExposure = .15 + u * .85;
+    raysMat.uniforms.rays.value = 1.4 * u; raysMat.uniforms.glow.value = 1.1 - u * .75;
+    const beat = (T - OP.reveal) * 2.13;
+    if (Math.floor(beat) !== Math.floor(beat - dt * 2.13)) {
+      for (const o of opMochis) if (o.pyr) o.g.userData.sv += 1.2 + o.y * 2;
+      const a = Math.random() * 6.2832;
+      fwAt(new THREE.Vector3(Math.cos(a) * 1.6, 1.3 + Math.random() * .8, Math.sin(a) * 1.2 - .4), 60, true);
+    }
+    if (Math.random() < .5) fwAt(new THREE.Vector3((Math.random() - .5) * .3, opTop + .05, 0), 2, false);
+    halo.position.set(0, opTop + .14 + Math.sin(T * 3) * .03, 0); halo.scale.setScalar(opRole === 'king' ? 2.2 : 1);
+    halo.rotation.set(Math.PI / 2 + Math.sin(T * 2) * .2, 0, T * 2);
+    if (T >= OP.logo && !opDone) { opDone = true; $('opLogo').className = 'on'; $('opTap').className = 'on'; sfx('stick', 6); }
+  }
+  raysMat.uniforms.t.value = T;
+  if (raysMesh.visible) {
+    const c = new THREE.Vector3(0, .45, 0), dir = camera.position.clone().sub(c).normalize();
+    c.y = Math.max(.45, opTop * .55); raysMesh.position.copy(c).addScaledVector(dir, -1.6); raysMesh.lookAt(camera.position);
+  }
+}
+function opCamera() {
+  const T = opT, look = new THREE.Vector3(0, .45, 0);
+  let ang, r, h;
+  if (T < OP.crash) { const u = T / OP.crash; ang = .8 - u * 1.0; r = 6.2 - u * 1.4; h = 3.4 - u * 1.0; look.y = .35 + u * .4; }
+  else if (T < OP.dark) { const u = (T - OP.crash) / (OP.dark - OP.crash); ang = -.2 + u * .5; r = 4.8 + u * .6; h = 2.4 - u * .4; look.y = .6; }
+  else if (T < OP.reveal) { const u = (T - OP.dark) / (OP.reveal - OP.dark); ang = .7 - u * .7; r = 4.2 - u * 1.0; h = 1.5 - u * .6; look.y = .45; }
+  else { const u = Math.min(1, (T - OP.reveal) / 3.5), e = 1 - Math.pow(1 - u, 3), big = /daimyo|tenku|king/.test(opRole) ? 1.35 : 1; ang = e * 1.1 + (T - OP.reveal) * .05; r = (3.0 - e * .4) * big + Math.max(0, T - OP.logo) * .25; h = (.8 + e * .3) * big + Math.max(0, T - OP.logo) * .15; look.y = Math.max(.45, opTop * .5) + Math.max(0, T - OP.logo) * .05; }
+  camera.position.set(Math.sin(ang) * r + (Math.random() - .5) * shake, h + (Math.random() - .5) * shake, Math.cos(ang) * r);
+  camera.lookAt(look);
+}
+$('opSkip').onclick = endOpening;
+$('op').addEventListener('click', e => { if (e.target.id !== 'opSkip' && opDone) endOpening(); });
+$('splash').onclick = startOpening;
+$('toOp').onclick = startOpening;
+
+// ---- loop
+const clock = new THREE.Clock(), pv = new THREE.Vector3();
+let acc = 0, elapsed = 0;
+function tick() {
+  const rawDt = clock.getDelta(), dt = Math.min(rawDt, .05); elapsed += dt;
+  if (state === 'opening') opTick(dt);
+  if (state !== 'title' && state !== 'opening') { acc += dt; while (acc >= 1 / 120) { world.step(1 / 120); acc -= 1 / 120; } }
+  if (plateBody && state !== 'opening') { plateG.position.copy(plateBody.position); plateG.quaternion.copy(plateBody.quaternion); }
+  burstMat.uniforms.t.value = elapsed;
+  for (const m of confetti) {
+    const u = m.userData; m.position.y -= u.v * dt; m.rotation.set(elapsed * u.r, elapsed * u.r * .7, Math.sin(elapsed + u.s));
+    m.position.x += Math.sin(elapsed * 1.3 + u.s) * .004; if (m.position.y < -.2) m.position.y = 9;
+  }
+
+  for (let i = flying.length - 1; i >= 0; i--) {
+    const f = flying[i], age = (performance.now() - f.born) / 1000;
+    f.g.position.copy(f.body.position);
+    const k = Math.min(age / T_FLIGHT, 1.15);
+    if (!f.drop) f.g.rotation.set(-k * Math.PI * 4, k * f.spinY, Math.sin(k * 9) * .2);     // 回転しながら飛ぶ
+    if (f.hit === 'plate' && (state === 'play' || state === 'ending')) { flying.splice(i, 1); if (!stickMochi(f)) { lost.push(f); freezeLost(f); } }
+    else if (f.hit || f.body.position.y < -1 || age > 6) { flying.splice(i, 1); lost.push(f); freezeLost(f); }
+  }
+  for (let i = lost.length - 1; i >= 0; i--) {
+    const f = lost[i]; f.t -= dt;
+    if (f.t < .4) f.g.visible = Math.floor(f.t * 20) % 2 === 0;
+    if (f.t <= 0) { scene.remove(f.g); lost.splice(i, 1); }
+  }
+  if (ready && readyT < 1) { readyT = Math.min(1, readyT + dt * 5); ready.position.lerpVectors(ready.userData.from, SPAWN, readyT); ready.scale.setScalar(.6 + .4 * readyT); }
+  if (next) { next.userData.grow = Math.min(1, next.userData.grow + dt * 4); next.rotation.y = Math.sin(elapsed * 1.5) * .4; }
+
+  if (MODE === 'plate' && (state === 'play' || state === 'ending')) settle(dt);
+  if (MODE === 'jubako') jbAnimate(dt);
+  for (let i = merging.length - 1; i >= 0; i--) {
+    const m = merging[i]; m.t += dt / .4;
+    const kg = stuck.find(s => s.king && !s.g.visible) || stuck.filter(s => s.king).pop();
+    if (kg) m.g.position.lerpVectors(m.from, new THREE.Vector3(kg.p.x, kg.p.y + kg.h * .4, kg.p.z), Math.min(1, m.t));
+    m.g.userData.sq.scale.setScalar(Math.max(.01, 1 - m.t * .9));
+    if (m.t >= 1) { plateG.remove(m.g); merging.splice(i, 1); }
+  }
+  for (const s of stuck) if (s.king && s.g.userData.kingT < 1) {
+    const u = s.g.userData; u.kingT += dt;
+    if (u.kingT > .35) {
+      if (!s.g.visible) { s.g.visible = true; toast('大にゃんころキング！'); burst('SSR'); burst('SR'); sfx('crash'); shake = .1; u.s = .75; u.sv = 0; u.s0 = .2; }
+      const t = Math.min(1, (u.kingT - .35) / .6), e = 1 - Math.pow(2, -9 * t) * Math.cos(t * 11);
+      u.kingX = 1 + (KING_X - 1) * e;
+      u.mesh.scale.setScalar(KINDS[u.k].scale * u.kingX);
+      u.mesh.position.y = u.h0 * u.kingX / 2;
+      if (t >= 1) u.kingT = 2;
+    }
+  }
+  // squish springs (ぷるぷる)
+  const all = [...stuck.map(s => s.g), ...flying.map(f => f.g), ...lost.map(f => f.g), ...opMochis.map(o => o.g), ...opShow.map(o => o.g)]; if (ready) all.push(ready);
+  for (const g of all) {
+    const u = g.userData, a = -60 * (u.s - u.s0) - 3.2 * u.sv;
+    u.sv += a * dt; u.s += u.sv * dt;
+    const s = THREE.MathUtils.clamp(u.s, -.4, .75);
+    const breathe = g === ready ? Math.sin(elapsed * 4) * .04 : 0;
+    const sc = g === ready && readyT < 1 ? .6 + .4 * readyT : 1;
+    u.sq.scale.set((1 + s * .62 - breathe * .5) * sc, (1 - s + breathe) * sc, (1 + s * .62 - breathe * .5) * sc);
+    if (u.qFrom && u.qt < 1) { u.qt = Math.min(1, u.qt + dt / .16); g.quaternion.slerpQuaternions(u.qFrom, u.qTo, u.qt); }
+  }
+  if (next) next.scale.setScalar(.62 * next.userData.grow);
+
+  if (state === 'play') {
+    timeLeft -= Math.min(rawDt, .5); cooldown -= dt;
+    if (!ready && cooldown <= 0) spawnReady();
+    if (timeLeft <= 0) { timeLeft = 0; state = 'ending'; endTimer = 1.8; for (const o of [ready, next]) if (o) scene.remove(o); ready = next = null; drag = null; dots.visible = marker.visible = false; $('hint').style.opacity = 0; }
+  }
+  if ((state === 'play' || state === 'ending') && plateFallen()) { state = 'falling'; bgmStop(); endTimer = 1.8; sfx('crash'); shake = .12; toast('がっしゃーん！'); for (const o of [ready, next]) if (o) scene.remove(o); ready = next = null; $('hint').style.opacity = 0; }
+  if (state === 'ending') { endTimer -= dt; if (endTimer <= 0 && !flying.length && !cardBusy && !wantCapture.length) finish(false); }
+  if (state === 'falling') { endTimer -= dt; if (endTimer <= 0) finish(true); }
+
+  const tl = $('time'); tl.textContent = Math.ceil(timeLeft); tl.classList.toggle('low', timeLeft <= 10 && state === 'play');
+  if (plateBody) $('tilt').style.height = (tiltAmount() * 100).toFixed(0) + '%';
+
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const m = sparks[i]; m.userData.life -= dt; m.userData.v.y -= m.userData.gr * dt;
+    m.position.addScaledVector(m.userData.v, dt); m.material.opacity = Math.max(0, m.userData.life * 1.5);
+    if (m.userData.life <= 0) { scene.remove(m); m.material.dispose(); sparks.splice(i, 1); }
+  }
+
+  shake *= .88;
+  if (state === 'opening') opCamera();
+  else { camera.position.set(camBase.x + (Math.random() - .5) * shake, camBase.y + (Math.random() - .5) * shake, camBase.z); camera.lookAt(camLook); }
+  if (wantCapture.length && state !== 'falling') { for (const w of wantCapture) capture(w); }
+  wantCapture = [];
+  if (!pOpen) renderer.render(scene, camera);
+
+  const nl = $('nextL');
+  if (next && state === 'play') { pv.copy(NEXTP); pv.y += .25; pv.project(camera); nl.style.left = (pv.x + 1) / 2 * innerWidth + 'px'; nl.style.top = (1 - pv.y) / 2 * innerHeight + 'px'; nl.style.opacity = 1; }
+  else nl.style.opacity = 0;
+  requestAnimationFrame(tick);
+}
+
+// ---- my mochi (painted). saved in this browser
+const BUILTIN = 14;
+let myList = [];
+try { myList = JSON.parse(localStorage.getItem('nyankoro-my') || '[]'); } catch (e) { myList = []; }
+function saveMy() { try { localStorage.setItem('nyankoro-my', JSON.stringify(myList)); return true; } catch (e) { return false; } }
+function addCustomKind(item) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const base = KINDS[item.base], tex = new THREE.Texture(img);
+      tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+      const mat = base.mat.clone(); mat.map = tex;
+      item.kind = KINDS.length;
+      KINDS.push({ geo: base.geo, mat, scale: base.scale, h0: base.h0, custom: true });
+      res();
+    };
+    img.onerror = () => res();
+    img.src = item.tex;
+  });
+}
+function renderMyList() {
+  const host = $('myList'); host.replaceChildren();
+  myList.forEach((m, i) => {
+    const d = document.createElement('div'), im = new Image(), x = document.createElement('button');
+    im.src = m.thumb; im.alt = 'マイもち ' + (i + 1); x.textContent = '×'; x.setAttribute('aria-label', 'マイもちを消す');
+    x.onclick = () => { myList.splice(i, 1); saveMy(); rebuildCustom(); renderMyList(); };
+    d.append(im, x); host.append(d);
+  });
+  $('myNote').textContent = myList.length ? 'マイもちは投げるもちにまざって出てきます' : '';
+}
+async function rebuildCustom() {
+  KINDS.length = BUILTIN;
+  for (const m of myList) await addCustomKind(m);
+}
+
+// ---- paint corner
+const PAL = ['#ff5fa2', '#ff9ccc', '#ff4d4d', '#ff9f43', '#ffe066', '#8ee6cf', '#2ecc71', '#46c2ff', '#3d5afe', '#b48cff', '#ffffff', '#5a5a5a', '#3b1f4a'];
+const pc = $('pc');
+let pr = null, pScene, pCam, pMesh, pGroup, pTex, pCtx, pCanvas, pBase = 0, pTool = 'tint', pSize = 20, pColor = PAL[0], pLum, pBodyLum = .8, pUndo = [], pOpen = false, pDrag = null;
+const ray = new THREE.Raycaster(), pv2 = new THREE.Vector2();
+function hex(c) { const n = parseInt(c.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function initPaint() {
+  if (pr) return;
+  pr = new THREE.WebGLRenderer({ canvas: pc, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  pr.setPixelRatio(Math.min(devicePixelRatio, 2)); pr.outputColorSpace = THREE.SRGBColorSpace; pr.toneMapping = THREE.NeutralToneMapping;
+  pScene = new THREE.Scene();
+  pScene.environment = new THREE.PMREMGenerator(pr).fromScene(new RoomEnvironment(), .04).texture; pScene.environmentIntensity = .5;
+  pScene.add(new THREE.HemisphereLight(0xffffff, 0xffc2dc, 1.4));
+  const d = new THREE.DirectionalLight(0xffffff, 1.6); d.position.set(1, 2, 3); pScene.add(d);
+  pCam = new THREE.PerspectiveCamera(32, 1, .1, 20); pCam.position.set(0, .3, 4.2); pCam.lookAt(0, 0, 0);
+  pGroup = new THREE.Group(); pScene.add(pGroup);
+  pCanvas = document.createElement('canvas'); pCanvas.width = pCanvas.height = 512; pCtx = pCanvas.getContext('2d', { willReadFrequently: true });
+  pTex = new THREE.CanvasTexture(pCanvas); pTex.flipY = false; pTex.colorSpace = THREE.SRGBColorSpace; pTex.anisotropy = 4;
+  const pal = $('pPal');
+  for (const c of PAL) {
+    const b = document.createElement('button'); b.className = 'sw' + (c === pColor ? ' on' : ''); b.style.background = c; b.setAttribute('aria-label', '色 ' + c);
+    b.onclick = () => { pColor = c; pal.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); if (pTool === 'all') fillAll(); };
+    pal.append(b);
+  }
+  $('pTools').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.t) { pTool = b.dataset.t; $('pTools').querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b)); if (pTool === 'all') fillAll(); }
+    if (b.dataset.s) { pSize = +b.dataset.s; $('pTools').querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); }
+  });
+}
+function loadBase(k) {
+  pBase = (k + BUILTIN) % BUILTIN;
+  $('pName').textContent = 'もち ' + (pBase + 1) + '/' + BUILTIN;
+  const K = KINDS[pBase];
+  pCtx.globalCompositeOperation = 'source-over';
+  pCtx.drawImage(K.mat.map.image, 0, 0, 512, 512);
+  // luminance of the original, so "いろだけ" keeps the face lines and shading
+  const d = pCtx.getImageData(0, 0, 512, 512).data; pLum = new Float32Array(512 * 512); const hist = [];
+  for (let i = 0; i < pLum.length; i++) { pLum[i] = (d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11) / 255; if (i % 97 === 0) hist.push(pLum[i]); }
+  hist.sort((a, b) => a - b); pBodyLum = Math.max(.25, hist[Math.floor(hist.length * .6)]);
+  pUndo = []; pTex.needsUpdate = true;
+  if (pMesh) pGroup.remove(pMesh);
+  const mat = K.mat.clone(); mat.map = pTex;
+  pMesh = new THREE.Mesh(K.geo, mat); pMesh.scale.setScalar(K.scale * 4.4); pGroup.add(pMesh);
+}
+function tintPx(data, i, rgb) {
+  const l = Math.min(1.15, pLum[i] / pBodyLum), w = l > 1 ? (l - 1) / .15 : 0;
+  for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.min(255, rgb[c] * Math.min(1, l) * (1 - w * .5) + 255 * w * .5);
+}
+function fillAll() {
+  pushUndo();
+  const img = pCtx.getImageData(0, 0, 512, 512), rgb = hex(pColor);
+  for (let i = 0; i < pLum.length; i++) tintPx(img.data, i, rgb);
+  pCtx.putImageData(img, 0, 0); pTex.needsUpdate = true;
+}
+function pushUndo() { pUndo.push(pCtx.getImageData(0, 0, 512, 512)); if (pUndo.length > 15) pUndo.shift(); }
+function dab(u, v) {
+  const x = u * 512, y = v * 512, r = pSize * .5;
+  if (pTool === 'pen') { pCtx.fillStyle = pColor; pCtx.beginPath(); pCtx.arc(x, y, r, 0, 7); pCtx.fill(); }
+  else {
+    const x0 = Math.max(0, Math.floor(x - r)), y0 = Math.max(0, Math.floor(y - r)), w = Math.min(512, Math.ceil(x + r)) - x0, h = Math.min(512, Math.ceil(y + r)) - y0;
+    if (w <= 0 || h <= 0) return;
+    const img = pCtx.getImageData(x0, y0, w, h), rgb = hex(pColor);
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      if ((x0 + xx - x) ** 2 + (y0 + yy - y) ** 2 > r * r) continue;
+      const li = (y0 + yy) * 512 + x0 + xx;
+      const l = Math.min(1.15, pLum[li] / pBodyLum), ww = l > 1 ? (l - 1) / .15 : 0, o = (yy * w + xx) * 4;
+      for (let c = 0; c < 3; c++) img.data[o + c] = Math.min(255, rgb[c] * Math.min(1, l) * (1 - ww * .5) + 255 * ww * .5);
+    }
+    pCtx.putImageData(img, x0, y0);
+  }
+  pTex.needsUpdate = true;
+}
+function hitUV(e) {
+  const r = pc.getBoundingClientRect();
+  pv2.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(pv2, pCam);
+  const h = ray.intersectObject(pMesh)[0];
+  return h && h.uv ? h.uv : null;
+}
+pc.addEventListener('pointerdown', e => {
+  const uv = hitUV(e); pc.setPointerCapture(e.pointerId);
+  if (uv && pTool !== 'all') { pushUndo(); pDrag = { paint: true, last: uv.clone() }; dab(uv.x, uv.y); }
+  else pDrag = { paint: false, x: e.clientX, y: e.clientY, ry: pGroup.rotation.y, rx: pGroup.rotation.x };
+});
+pc.addEventListener('pointermove', e => {
+  if (!pDrag) return;
+  if (pDrag.paint) {
+    const uv = hitUV(e); if (!uv) return;
+    const d = Math.hypot((uv.x - pDrag.last.x) * 512, (uv.y - pDrag.last.y) * 512);
+    if (d < 40) { const n = Math.max(1, Math.ceil(d / (pSize * .3))); for (let i = 1; i <= n; i++) dab(pDrag.last.x + (uv.x - pDrag.last.x) * i / n, pDrag.last.y + (uv.y - pDrag.last.y) * i / n); }
+    else dab(uv.x, uv.y);
+    pDrag.last.copy(uv);
+  } else {
+    pGroup.rotation.y = pDrag.ry + (e.clientX - pDrag.x) * .012;
+    pGroup.rotation.x = THREE.MathUtils.clamp(pDrag.rx + (e.clientY - pDrag.y) * .008, -.9, .9);
+  }
+});
+const pEnd = () => { pDrag = null; };
+pc.addEventListener('pointerup', pEnd); pc.addEventListener('pointercancel', pEnd);
+$('pPrev').onclick = () => loadBase(pBase - 1);
+$('pNext').onclick = () => loadBase(pBase + 1);
+$('pUndo').onclick = () => { const d = pUndo.pop(); if (d) { pCtx.putImageData(d, 0, 0); pTex.needsUpdate = true; } };
+$('pReset').onclick = () => loadBase(pBase);
+function paintLoop() {
+  if (!pOpen) return;
+  const w = pc.clientWidth, h = pc.clientHeight;
+  if (pc.width !== Math.floor(w * pr.getPixelRatio()) || pc.height !== Math.floor(h * pr.getPixelRatio())) { pr.setSize(w, h, false); pCam.aspect = w / h; pCam.updateProjectionMatrix(); }
+  if (!pDrag) pGroup.rotation.y += Math.sin(performance.now() / 900) * .002;
+  pr.render(pScene, pCam);
+  requestAnimationFrame(paintLoop);
+}
+$('toPaint').onclick = () => {
+  initPaint(); $('paint').hidden = false; $('title').hidden = true; pOpen = true;
+  pGroup.rotation.set(0, 0, 0); loadBase(pBase); requestAnimationFrame(paintLoop);
+};
+$('pClose').onclick = () => { pOpen = false; $('paint').hidden = true; $('title').hidden = false; };
+$('pSave').onclick = async () => {
+  pGroup.rotation.set(0, 0, 0); pr.render(pScene, pCam);
+  const t = document.createElement('canvas'); t.width = t.height = 96;
+  const s = Math.min(pc.width, pc.height); t.getContext('2d').drawImage(pc, (pc.width - s) / 2, (pc.height - s) / 2, s, s, 0, 0, 96, 96);
+  const item = { base: pBase, tex: pCanvas.toDataURL('image/jpeg', .9), thumb: t.toDataURL('image/png') };
+  myList.unshift(item); if (myList.length > 8) myList.length = 8;
+  const ok = saveMy();
+  await rebuildCustom(); renderMyList();
+  pOpen = false; $('paint').hidden = true; $('title').hidden = false;
+  $('myNote').textContent = ok ? 'マイもちを保存しました。投げるもちにまざって出てきます' : 'このブラウザでは保存できませんでした。今回だけ使えます';
+};
+
+// ---- load the 14 mochi
+const loader = new GLTFLoader();
+let loaded = 0;
+const ids = Array.from({ length: 14 }, (_, i) => String(i).padStart(2, '0'));
+Promise.all(ids.map((id, i) => import('./m' + id + '.js').then(mod => new Promise((res, rej) => {
+  const bin = atob(mod.default), buf = new Uint8Array(bin.length);
+  for (let j = 0; j < bin.length; j++) buf[j] = bin.charCodeAt(j);
+  loader.parse(buf.buffer, '', gltf => {
+    let src = null; gltf.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+    const geo = src.geometry; geo.computeBoundingBox();
+    const bb = geo.boundingBox, c = new THREE.Vector3(), size = new THREE.Vector3(); bb.getCenter(c); bb.getSize(size);
+    geo.translate(-c.x, -c.y, -c.z);
+    const scale = W0 / size.x, mat = src.material;
+    mat.roughness = .42; mat.metalness = 0; if (mat.map) mat.map.anisotropy = 4;
+    KINDS[i] = { geo, mat, scale, h0: size.y * scale };
+    $('load').textContent = 'もちをこねています… ' + (++loaded) + '/14';
+    res();
+  }, rej);
+})))).then(async () => {
+  await rebuildCustom(); renderMyList(); renderZukan(); renderExamples();
+  makePlate(); checkRoles(false);
+  $('load').remove();
+  $('best').textContent = bestLine();
+  let seen = false; try { seen = localStorage.getItem('nyankoro-op') === '1'; } catch (e) {}
+  window.__started = true;
+  if (seen) { state = 'title'; $('title').hidden = false; } else { state = 'splash'; $('splash').hidden = false; document.body.classList.add('opening'); }
+  requestAnimationFrame(tick);
+}).catch(() => { $('load').textContent = 'もちを読みこめませんでした。再読みこみしてください'; });
+}
+</script>
+</body>
+</html>
