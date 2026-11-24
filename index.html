@@ -1795,7 +1795,7 @@ function dab(p, n) {      // p: a point on the model surface, n: which way that 
     for (const i of l) {
       const o = i * 3, dd = (pPos[o] - p.x) ** 2 + (pPos[o + 1] - p.y) ** 2 + (pPos[o + 2] - p.z) ** 2;
       if (dd > r2) continue;
-      if (pNrm[o] * n.x + pNrm[o + 1] * n.y + pNrm[o + 2] * n.z < .2) continue;      // not the other side of a thin part
+      if (pNrm[o] * n.x + pNrm[o + 1] * n.y + pNrm[o + 2] * n.z < -.3) continue;      // skip only the far side of a thin part (dents and creases still get paint)
       const a = Math.min(1, (1 - Math.sqrt(dd) / r) * 3);      // soft edge
       if (pTool === 'pen') for (let c = 0; c < 3; c++) d[i * 4 + c] += (rgb[c] - d[i * 4 + c]) * a;
       else tintPx(d, i, rgb, a);
@@ -1807,7 +1807,14 @@ function hitPoint(clientX, clientY) {
   pv2.set((clientX - r.left) / r.width * 2 - 1, -(clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(pv2, pCam);
   const h = ray.intersectObject(pMesh)[0];
-  return h ? { p: pMesh.worldToLocal(h.point.clone()), n: h.face.normal.clone() } : null;
+  if (!h) return null;
+  // the smooth surface direction at the hit (not the flat triangle's), so bumps don't throw it off
+  const nr = pMesh.geometry.attributes.normal, f = h.face, n = new THREE.Vector3();
+  if (h.barycoord && nr) {
+    const bc = h.barycoord;
+    n.set(nr.getX(f.a) * bc.x + nr.getX(f.b) * bc.y + nr.getX(f.c) * bc.z, nr.getY(f.a) * bc.x + nr.getY(f.b) * bc.y + nr.getY(f.c) * bc.z, nr.getZ(f.a) * bc.x + nr.getZ(f.b) * bc.y + nr.getZ(f.c) * bc.z).normalize();
+  } else n.copy(f.normal);
+  return { p: pMesh.worldToLocal(h.point.clone()), n };
 }
 const pPtrs = new Map();
 const pinchInfo = () => { const [a, b] = [...pPtrs.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
